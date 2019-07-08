@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+import argparse
+import textwrap
+import itertools
+import logging
+import sys
+
+
+def make_parser():
+    parser = argparse.ArgumentParser(
+        description='Make fixed-width plaintext table with multi-line cell '
+                    'supports. Currently only support grid table, but it\'s '
+                    'trivial to adapt it to other layout once the table has '
+                    'been built. What plaintext table content is expected: '
+                    '<TAB> will be regarded as field delimiter, <LF> '
+                    '(or <CRLF> if on Windows) as row delimiter, and all the '
+                    'others as cell content.')
+    parser.add_argument('-W', '--widths', metavar='WIDTH_LIST',
+                        type=comma_sep_list, default=[],
+                        help='a comma-separated list of WIDTH (int) '
+                             'specifying the width of each column. Note, '
+                             'however, that the actual width of each field '
+                             'is (WIDTH-2) because of the left and right '
+                             'one-space paddings, and that the actual width '
+                             'of the entire table is (1+NF+sum(WIDTH)), '
+                             'NF being the max number of fields in each row, '
+                             'because of the column rulers.')
+    parser.add_argument('filename', nargs='?', metavar='FILE',
+                        help='table content from which to read; if FILE is '
+                             'not specified, the table content will be '
+                             'expected from stdin')
+    return parser
+
+
+def comma_sep_list(string):
+    try:
+        l = list(map(int, string.rstrip('\n').split(',')))
+    except ValueError as ex:
+        raise argparse.ArgumentTypeError from ex
+    return l
+
+
+def _main():
+    logging.basicConfig(format='%(filename)s: %(levelname)s: %(message)s')
+    args = make_parser().parse_args()
+    if not args.filename:
+        content = list(sys.stdin)
+    else:
+        try:
+            with open(args.filename) as infile:
+                content = list(infile)
+        except IOError as ex:
+            logging.exception(e)
+            sys.exit(1)
+    rows = [l.rstrip('\n').split('\t') for l in content]
+    try:
+        # if this line starts with bullets, do additional indentation
+        wrapped = [[textwrap.wrap(s, args.widths[j] - 2,
+                                  subsequent_indent='  '
+                                  if s[:2] in ('o ', '- ', '+ ', '* ') else '',
+                                  break_long_words=False)
+                    for j, s in enumerate(r)]
+                   for r in rows]
+    except IndexError as ex:
+        logging.exception('WIDTH_LIST not long enough to specify all columns')
+        sys.exit(4)
+
+    # check existence of too long lines
+    for i, w in enumerate(wrapped):
+        for j, f in enumerate(w):
+            if max(map(len, f), default=0) > args.widths[j] - 2:
+                logging.warning('Row %d Column %d contains too long words; '
+                                'try adding hyphen within long words', i, j)
+
+    filled = [[([s.join('  ') + ' ' * (args.widths[j] - len(s.join('  ')))
+                 for s in x]
+                + [(' ' * args.widths[j])
+                   for _ in range(max(map(len, w)) - len(x))])
+               for j, x in enumerate(w)]
+              for w in wrapped]
+    delimed = [list(x.join('||') for x in map('|'.join, zip(*f)))
+               for f in filled]
+    hrule = '+'.join('-' * w for w in args.widths).join('++')
+    hdelimed = [[]] + delimed
+    hdelimed = [(x + [hrule]) for x in hdelimed]
+    table = '\n'.join(itertools.chain.from_iterable(hdelimed))
+    print(table)
+
+
+def main():
+    try:
+        _main()
+    except KeyboardInterrupt:
+        pass
+    except BrokenPipeError:
+        sys.stderr.close()
+
+
+if __name__ == '__main__':
+    main()
