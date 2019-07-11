@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+import pdb
 import argparse
 import textwrap
+import shutil
 import itertools
+from itertools import combinations_with_replacement
 import logging
 import sys
+
 
 
 def make_parser():
@@ -16,15 +20,38 @@ def make_parser():
                     '(or <CRLF> if on Windows) as row delimiter, and all the '
                     'others as cell content.')
     parser.add_argument('-W', '--widths', metavar='WIDTH_LIST',
-                        type=comma_sep_list, default=[],
-                        help='a comma-separated list of WIDTH (int) '
-                             'specifying the width of each column. Note, '
-                             'however, that the actual width of each field '
-                             'is (WIDTH-2) because of the left and right '
-                             'one-space paddings, and that the actual width '
-                             'of the entire table is (1+NF+sum(WIDTH)), '
-                             'NF being the max number of fields in each row, '
-                             'because of the column rulers.')
+                        type=comma_sep_list,
+                        help='a comma-separated list of WIDTH (int) or `-\''
+                             ' specifying the width of each column; `-\' '
+                             'implies that the width of the underlying '
+                             'column can be decided by the program in '
+                             'objective of minimizing the total number of '
+                             'rows. Each WIDTH defines the maximum number of '
+                             'characters in the cell per row, except that '
+                             'when `-B\' is specified, (WIDTH - 2) will be '
+                             'the maximum number. Note, however, that the '
+                             'sum of WIDTHs does not necessarily equal to '
+                             'the width of table, since the table layout is '
+                             'not taken into account with WIDTHs.')
+    parser.add_argument('-T', '--table-width', type=int, dest='total_width',
+                        help='the total table width; if specified, unless '
+                             'WIDTH_LIST contains at least one `-\', '
+                             'TABLE_WIDTH may not imply the actual table '
+                             'width rendered; default to terminal width')
+    parser.add_argument('-B', '--bullets', metavar='CHARS', default='',
+                        type=bullet_set,
+                        help='a set of characters used as leading bullets '
+                             'with additional indentation; default none')
+    parser.add_argument('-y', '--break-hyphen', action='store_true',
+                        dest='break_on_hyphens',
+                        help='to allow break on hyphen of long words')
+    parser.add_argument('-L', '--layout', default='grid',
+                        help='table layout; default to %(default)s',
+                        choices=('grid',))
+    parser.add_argument('-S', '--strict', action='store_true',
+                        help='to enable strict mode, where wrapped lines '
+                             'exceeding the WIDTHs that will ruin the table '
+                             'layout are forbidden')
     parser.add_argument('filename', nargs='?', metavar='FILE',
                         help='table content from which to read; if FILE is '
                              'not specified, the table content will be '
@@ -34,62 +61,224 @@ def make_parser():
 
 def comma_sep_list(string):
     try:
-        l = list(map(int, string.rstrip('\n').split(',')))
+        l = [None if x == '-' else int(x)
+             for x in string.rstrip('\n').split(',')]
     except ValueError as ex:
         raise argparse.ArgumentTypeError from ex
     return l
 
 
-def _main():
-    logging.basicConfig(format='%(filename)s: %(levelname)s: %(message)s')
-    args = make_parser().parse_args()
-    if not args.filename:
+def bullet_set(string):
+    return list(map('{} '.format, string))
+
+
+def read_content(args_filename):
+    if not args_filename:
         content = list(sys.stdin)
     else:
         try:
-            with open(args.filename) as infile:
+            with open(args_filename) as infile:
                 content = list(infile)
-        except IOError as ex:
-            logging.exception(e)
+        except IOError:
+            logging.exception('Failed to read "%s"', args_filename)
             sys.exit(1)
-    rows = [l.rstrip('\n').split('\t') for l in content]
+    content = [l.rstrip('\n').split('\t') for l in content]
+    return content
+
+
+def enum_partitions(l, k):
+    if not l:
+        return
+    sl = sum(l)
+    if sl > k:
+        raise ValueError
+    for x in combinations_with_replacement(range(k-sl+1), len(l)-1):
+        x1 = x + (k-sl,)
+        x2 = (0,) + x
+        yield tuple(x1[i]-x2[i]+l[i] for i in range(len(l)))
+
+
+def ensure_ncols(content, user_widths, n_cols, strict):
+    if user_widths is None:
+        user_widths = [None for _ in range(n_cols)]
+    elif len(user_widths) != n_cols:
+        if strict:
+            logging.error('Number of width specified (%d) does not '
+                          'match number of table columns (%d)',
+                          len(user_widths), n_cols)
+            sys.exit(4)
+        if len(user_widths) < n_cols:
+            user_widths += [None for _ in range(n_cols - len(user_widths))]
+        else:
+            user_widths = user_widths[:n_cols]
+        logging.warning('Number of width specified (%d) does not match '
+                        'number of table columns (%d); truncating/padding '
+                        'WIDTH_LIST to %s',
+                        len(user_widths), n_cols, user_widths)
+    return user_widths
+
+
+def enum_possible_widths(content, user_widths, total_width, layout,
+                         break_on_hyphens, strict):
+    n_cols = max(map(len, content))
+    user_widths = ensure_ncols(content, user_widths, n_cols, strict)
+    assert len(user_widths) == n_cols
+    layout_consumption = {
+        'grid': n_cols * 3 + 1,
+    }[layout]
+    total_width = total_width - layout_consumption
+    logging.debug('Layout %s consumes %d from the total width %d',
+                  layout, layout_consumption, layout_consumption + total_width)
+    llimits = find_width_llimits(content, break_on_hyphens)
+    noneIndices = [i for i, x in enumerate(user_widths) if x is None]
+    llimits = [llimits[i] for i in noneIndices]
+    if llimits:
+        partial_total = total_width - sum(filter(None, user_widths))
+        for partial_widths in enum_partitions(llimits, partial_total):
+            w = user_widths[:]
+            for j, i in enumerate(noneIndices):
+                w[i] = partial_widths[j]
+            yield w
+    else:
+        yield user_widths
+
+def find_width_llimits(rows, break_on_hyphens):
+    if break_on_hyphens:
+        def split_(string):
+            return re.split(r'\s|-', string)
+    else:
+        def split_(string):
+            return string.split()
+
+    n_cols = max(map(len, rows))
+    ll = [0 for _ in range(n_cols)]
+    for j in range(n_cols):
+        for r in rows:
+            try:
+                cell = r[j]
+            except IndexError:
+                pass
+            else:
+                lwordlen = max(map(len, split_(cell)))
+                if break_on_hyphens:
+                    lwordlen += 1
+                ll[j] = max(ll[j], lwordlen)
+    return ll
+
+
+def wrap_lines(row, widths, bullets_space, break_on_hyphens):
+    return [
+        textwrap.wrap(s, widths[j] - 2, subsequent_indent='  '
+                      if s[:2] in bullets_space else '',
+                      break_long_words=False,
+                      break_on_hyphens=break_on_hyphens)
+        for j, s in enumerate(row)
+    ]
+
+
+class WrappedLineTooLongError(Exception):
+    def __init__(self, rowid, colid, string):
+        self.rowid = rowid
+        self.colid = colid
+        self.string = string
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(rowid=' \
+               f'{self.rowid}, colid={self.colid}, string={self.string})'
+
+    def __str__(self):
+        return f'Wrapped line "{self.string}" too long ' \
+               f'at row {self.rowid} col {self.colid}'
+
+
+def check_wrapped_lines(wrapped, widths):
+    for j, col in enumerate(wrapped):
+        for i, row in enumerate(col):
+            if len(row) > widths[j]:
+                raise WrappedLineTooLongError(i + 1, j + 1, row)
+
+
+def fill_wrapped_lines(wrapped, widths):
+    return [([s + ' ' * (widths[j] - len(s)) for s in x]
+             + [' ' * widths[j] for _ in
+                range(max(map(len, wrapped)) - len(x))])
+            for j, x in enumerate(wrapped)]
+
+
+def attempt_wrap(content, widths, bullets_space, break_on_hyphens, strict):
+    wrapped_rows = [wrap_lines(r, widths, bullets_space, break_on_hyphens)
+                    for r in content]
+    err = None
     try:
-        # if this line starts with bullets, do additional indentation
-        wrapped = [[textwrap.wrap(s, args.widths[j] - 2,
-                                  subsequent_indent='  '
-                                  if s[:2] in ('o ', '- ', '+ ', '* ') else '',
-                                  break_long_words=False)
-                    for j, s in enumerate(r)]
-                   for r in rows]
-    except IndexError as ex:
-        logging.exception('WIDTH_LIST not long enough to specify all columns')
-        sys.exit(4)
-
-    # check existence of too long lines
-    for i, w in enumerate(wrapped):
-        for j, f in enumerate(w):
-            if max(map(len, f), default=0) > args.widths[j] - 2:
-                logging.warning('Row %d Column %d contains too long words; '
-                                'try adding hyphen within long words', i, j)
-
-    filled = [[([s.join('  ') + ' ' * (args.widths[j] - len(s.join('  ')))
-                 for s in x]
-                + [(' ' * args.widths[j])
-                   for _ in range(max(map(len, w)) - len(x))])
-               for j, x in enumerate(w)]
-              for w in wrapped]
-    delimed = [list(x.join('||') for x in map('|'.join, zip(*f)))
-               for f in filled]
-    hrule = '+'.join('-' * w for w in args.widths).join('++')
-    hdelimed = [[]] + delimed
-    hdelimed = [(x + [hrule]) for x in hdelimed]
-    table = '\n'.join(itertools.chain.from_iterable(hdelimed))
-    print(table)
+        for wrapped in wrapped_rows:
+            check_wrapped_lines(wrapped, widths)
+    except WrappedLineTooLongError as err:
+        if strict:
+            raise
+    nrows_total = sum(max(map(len, wr)) for wr in wrapped_rows)
+    return nrows_total, err
 
 
-def main():
+def find_best_widths(content, user_widths, bullets_space, break_on_hyphens,
+                     total_width, layout, strict):
+    results = []
+    all_widths = []
+    for widths in enum_possible_widths(content, user_widths, total_width,
+                                       layout, break_on_hyphens, strict):
+        try:
+            results.append(attempt_wrap(content, widths, bullets_space,
+                                        break_on_hyphens, strict))
+        except WrappedLineTooLongError:
+            pass
+        else:
+            all_widths.append(widths)
+
+    if not results:
+        logging.error('Not possible to form a table of current spec')
+        sys.exit(8)
+    noerr_results = [x[0] for x in results if x[1] is None]
+    if noerr_results:
+        results = noerr_results
+    else:
+        logging.warning('Not possible to form a table of current spec; the '
+                        'render result might be corrupted somewhat')
+        results = [x[0] for x in results]
+    return all_widths[results.index(min(results))]
+
+
+def do_wrap_and_fill(content, widths, bullets_space, break_on_hyphens):
+    return [fill_wrapped_lines(wrap_lines(
+        r, widths, bullets_space, break_on_hyphens),
+        widths) for r in content]
+
+
+def render_table(wrapped_and_filled, widths, layout):
+    padded = [[[c.join('  ')
+                for c in r]
+               for r in col]
+              for col in wrapped_and_filled]
+    delimed = [list(map('|'.join, zip(*p))) for p in padded]
+    delimed = [[r.join('||') for r in col] for col in delimed]
+    hrule = '+'.join('-' * (w + 2) for w in widths).join('++')
+    table = [[hrule]]
+    for x in delimed:
+        table.extend((x, [hrule]))
+    return '\n'.join(itertools.chain.from_iterable(table))
+
+
+def _main():
+    args = make_parser().parse_args()
+    logging.basicConfig(format='%(filename)s: %(levelname)s: %(message)s')
     try:
-        _main()
+        content = read_content(args.filename)
+        widths = find_best_widths(content, args.widths, args.bullets,
+                                  args.break_on_hyphens, args.total_width
+                                  or shutil.get_terminal_size().columns,
+                                  args.layout, args.strict)
+        wf = do_wrap_and_fill(content, widths, args.bullets,
+                              args.break_on_hyphens)
+        table = render_table(wf, widths, args.layout)
+        print(table)
     except KeyboardInterrupt:
         pass
     except BrokenPipeError:
@@ -97,4 +286,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    _main()
