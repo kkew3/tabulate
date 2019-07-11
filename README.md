@@ -15,7 +15,7 @@ Usage
 
 ```
 usage: textmltab [-h] [-W WIDTH_LIST] [-T TOTAL_WIDTH] [-B CHARS] [-y]
-                 [-L {grid}] [-S]
+                 [-L {grid}] [-S] [-d DELIMITER]
                  [FILE]
 
 Make fixed-width plaintext table with multi-line cell supports. Currently only
@@ -56,6 +56,8 @@ optional arguments:
   -S, --strict          to enable strict mode, where wrapped lines exceeding
                         the WIDTHs that will ruin the table layout are
                         forbidden
+  -d DELIMITER, --delimiter DELIMITER
+                        the column delimiter in input data, default to <TAB>
 ```
 
 Installation

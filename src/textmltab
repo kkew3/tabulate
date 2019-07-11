@@ -52,6 +52,9 @@ def make_parser():
                         help='to enable strict mode, where wrapped lines '
                              'exceeding the WIDTHs that will ruin the table '
                              'layout are forbidden')
+    parser.add_argument('-d', '--delimiter', default='\t',
+                        help='the column delimiter in input data, default '
+                             'to <TAB>')
     parser.add_argument('filename', nargs='?', metavar='FILE',
                         help='table content from which to read; if FILE is '
                              'not specified, the table content will be '
@@ -72,7 +75,7 @@ def bullet_set(string):
     return list(map('{} '.format, string))
 
 
-def read_content(args_filename):
+def read_content(args_filename, delimiter):
     if not args_filename:
         content = list(sys.stdin)
     else:
@@ -82,7 +85,7 @@ def read_content(args_filename):
         except IOError:
             logging.exception('Failed to read "%s"', args_filename)
             sys.exit(1)
-    content = [l.rstrip('\n').split('\t') for l in content]
+    content = [l.rstrip('\n').split(delimiter) for l in content]
     return content
 
 
@@ -270,7 +273,7 @@ def _main():
     args = make_parser().parse_args()
     logging.basicConfig(format='%(filename)s: %(levelname)s: %(message)s')
     try:
-        content = read_content(args.filename)
+        content = read_content(args.filename, args.delimiter)
         widths = find_best_widths(content, args.widths, args.bullets,
                                   args.break_on_hyphens, args.total_width
                                   or shutil.get_terminal_size().columns,
