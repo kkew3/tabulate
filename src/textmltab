@@ -255,18 +255,29 @@ def do_wrap_and_fill(content, widths, bullets_space, break_on_hyphens):
         widths) for r in content]
 
 
-def render_table(wrapped_and_filled, widths, layout):
-    padded = [[[c.join('  ')
-                for c in r]
-               for r in col]
-              for col in wrapped_and_filled]
-    delimed = [list(map('|'.join, zip(*p))) for p in padded]
-    delimed = [[r.join('||') for r in col] for col in delimed]
-    hrule = '+'.join('-' * (w + 2) for w in widths).join('++')
-    table = [[hrule]]
-    for x in delimed:
-        table.extend((x, [hrule]))
-    return '\n'.join(itertools.chain.from_iterable(table))
+class TableRenderer:
+    @classmethod
+    def render_table(cls, wrapped_and_filled, widths, layout):
+        try:
+            f = getattr(cls, 'render_table_' + layout)
+        except AttributeError as err:
+            raise NotImplementedError from err
+        else:
+            return f(wrapped_and_filled, widths)
+
+    @staticmethod
+    def render_table_grid(wrapped_and_filled, widths):
+        padded = [[[c.join('  ')
+                    for c in r]
+                   for r in col]
+                  for col in wrapped_and_filled]
+        delimed = [list(map('|'.join, zip(*p))) for p in padded]
+        delimed = [[r.join('||') for r in col] for col in delimed]
+        hrule = '+'.join('-' * (w + 2) for w in widths).join('++')
+        table = [[hrule]]
+        for x in delimed:
+            table.extend((x, [hrule]))
+        return '\n'.join(itertools.chain.from_iterable(table))
 
 
 def _main():
@@ -280,7 +291,7 @@ def _main():
                                   args.layout, args.strict)
         wf = do_wrap_and_fill(content, widths, args.bullets,
                               args.break_on_hyphens)
-        table = render_table(wf, widths, args.layout)
+        table = TableRenderer.render_table(wf, widths, args.layout)
         print(table)
     except KeyboardInterrupt:
         pass
