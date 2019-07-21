@@ -1,9 +1,10 @@
 ```
- _            _             _ _        _     
-| |_ _____  _| |_ _ __ ___ | | |_ __ _| |__  
-| __/ _ \ \/ / __| '_ ` _ \| | __/ _` | '_ \ 
-| ||  __/>  <| |_| | | | | | | || (_| | |_) |
- \__\___/_/\_\\__|_| |_| |_|_|\__\__,_|_.__/ 
+ _        _           _       _       
+| |_ __ _| |__  _   _| | __ _| |_ ___ 
+| __/ _` | '_ \| | | | |/ _` | __/ _ \
+| || (_| | |_) | |_| | | (_| | ||  __/
+ \__\__,_|_.__/ \__,_|_|\__,_|\__\___|
+                                      
 ```
 
 Make fixed-width plaintext grid table with multiline cell support.
@@ -11,10 +12,10 @@ Make fixed-width plaintext grid table with multiline cell support.
 Usage
 -----
 
-> copied from `textmltab --help`:
+> copied from `tabulate --help`:
 
 ```
-usage: textmltab [-h] [-W WIDTH_LIST] [-T TOTAL_WIDTH] [-B CHARS] [-y]
+usage: tabulate [-h] [-W WIDTH_LIST] [-T TOTAL_WIDTH] [-B CHARS] [-y]
                  [-L {grid}] [-S] [-d DELIMITER]
                  [FILE]
 
@@ -63,30 +64,30 @@ optional arguments:
 Installation
 ------------
 
-Write a launcher script of `src/textmltab` and enjoy.
+Write a launcher script of `src/tabulate` and enjoy.
 
 Launcher script example (bash)
 
 ```bash
 #!/usr/bin/env bash
-python3 src/textmltab "$@"
+python3 src/tabulate "$@"
 ```
 
 Launcher script example (dos-batch)
 
 ```batch
-@py -3 src\textmltab %*
+@py -3 src\tabulate %*
 ```
 
 Example
 -------
 
-Type `textmltab -W14,56 example.txt` to convert [example.txt](example.txt) to [example-formatted.txt](example-formatted.txt).
+Type `tabulate -W14,56 example.txt` to convert [example.txt](example.txt) to [example-formatted.txt](example-formatted.txt).
 
 > example.txt
 
 ```
-Usage	textmltab [-h] [-W WIDTH_LIST] [FILE]
+Usage	tabulate [-h] [-W WIDTH_LIST] [FILE]
 Description	Make fixed-width plaintext table with multi-line cell supports. Currently only support grid table, but it's trivial to adapt it to other layout once the table has been built. What plaintext table content is expected: <TAB> will be regarded as field delimiter, <LF> (or <CRLF> if on Windows) as row delimiter, and all the others as cell content.
 FILE	table content from which to read; if FILE is not specified, the table content will be expected from stdin
 -h, --help	show this help message and exit
@@ -97,7 +98,7 @@ FILE	table content from which to read; if FILE is not specified, the table conte
 
 ```
 +--------------+--------------------------------------------------------+
-| Usage        | textmltab [-h] [-W WIDTH_LIST] [FILE]                  |
+| Usage        | tabulate [-h] [-W WIDTH_LIST] [FILE]                   |
 +--------------+--------------------------------------------------------+
 | Description  | Make fixed-width plaintext table with multi-line cell  |
 |              | supports. Currently only support grid table, but it's  |

@@ -1,4 +1,4 @@
-Usage	textmltab [-h] [-W WIDTH_LIST] [FILE]
+Usage	tabulate [-h] [-W WIDTH_LIST] [FILE]
 Description	Make fixed-width plaintext table with multi-line cell supports. Currently only support grid table, but it's trivial to adapt it to other layout once the table has been built. What plaintext table content is expected: <TAB> will be regarded as field delimiter, <LF> (or <CRLF> if on Windows) as row delimiter, and all the others as cell content.
 FILE	table content from which to read; if FILE is not specified, the table content will be expected from stdin
 -h, --help	show this help message and exit

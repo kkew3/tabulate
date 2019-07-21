@@ -1,5 +1,5 @@
 +--------------+--------------------------------------------------------+
-| Usage        | textmltab [-h] [-W WIDTH_LIST] [FILE]                  |
+| Usage        | tabulate [-h] [-W WIDTH_LIST] [FILE]                   |
 +--------------+--------------------------------------------------------+
 | Description  | Make fixed-width plaintext table with multi-line cell  |
 |              | supports. Currently only support grid table, but it's  |
