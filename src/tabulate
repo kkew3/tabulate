@@ -8,6 +8,11 @@ from itertools import combinations_with_replacement
 import logging
 import sys
 
+try:
+    import cjkwrap as textwrap
+    from cjkwrap import cjklen as len
+except ImportError:
+    pass
 
 
 def make_parser():
