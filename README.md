@@ -79,6 +79,11 @@ Launcher script example (dos-batch)
 @py -3 src\tabulate %*
 ```
 
+Optional Requirement
+--------------------
+
+- `cjkwrap`: for CJK language support
+
 Example
 -------
 
