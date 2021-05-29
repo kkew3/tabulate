@@ -224,6 +224,10 @@ def attempt_wrap(content, widths, bullets_space, break_on_hyphens, strict):
         if strict:
             raise
         err = _err
+        # See these for clarification:
+        # - https://stackoverflow.com/a/24271786/7881370
+        # - https://stackoverflow.com/a/29268974/7881370
+        err.__traceback__ = None
     nrows_total = sum(max(map(len, wr)) for wr in wrapped_rows)
     return nrows_total, err
 
