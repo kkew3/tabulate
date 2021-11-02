@@ -5,6 +5,7 @@ import argparse
 import logging
 import itertools
 import copy
+import abc
 
 try:
     from cjkwrap import cjklen
@@ -219,11 +220,12 @@ def fill_wrapped_row(wrapped_row, widths):
             for i, cell in enumerate(wrapped_row)]
 
 
-class TableRenderer:
+class TableRenderer(abc.ABC):
     """
     Abstract base class of all table renderer.
     """
 
+    @abc.abstractmethod
     def calc_layout_width(self, n_columns):
         """
         :param n_columns: the number of columns of the table
@@ -231,8 +233,9 @@ class TableRenderer:
         :return: the part of table width attributed to by the table layout
         :rtype: int
         """
-        raise NotImplementedError
+        ...
 
+    @abc.abstractmethod
     def render_table(self, wrapped_and_filled, widths):
         """
         Render table.
@@ -245,7 +248,7 @@ class TableRenderer:
         :return: the rendered table
         :rtype: str
         """
-        raise NotImplementedError
+        ...
 
 
 # name: grid
