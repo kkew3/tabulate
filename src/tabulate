@@ -372,15 +372,15 @@ def main():
 
         wrapped_content = [wrap_row(row, widths, args.break_long_words)
                            for row in content]
-        try:
-            for wrapped_row in wrapped_content:
+        for wrapped_row in wrapped_content:
+            try:
                 check_wrapped_row(wrapped_row, widths)
-        except WrappedLineTooLongError as e:
-            if args.strict:
-                logging.error('%s', e)
-                sys.exit(ERRNO_WRAP)
-            else:
-                logging.warning('%s', e)
+            except WrappedLineTooLongError as e:
+                if args.strict:
+                    logging.error('%s', e)
+                    sys.exit(ERRNO_WRAP)
+                else:
+                    logging.warning('%s', e)
         filled_content = [fill_wrapped_row(wrapped_row, widths)
                           for wrapped_row in wrapped_content]
         print(table_renderer.render_table(filled_content, widths))
