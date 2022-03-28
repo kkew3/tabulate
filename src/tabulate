@@ -177,18 +177,20 @@ class WrappedLineTooLongError(Exception):
             self.string, self.rowid, self.colid)
 
 
-def check_wrapped_row(wrapped_row, widths) -> None:
+def check_wrapped_row(i, wrapped_row, widths) -> None:
     """
     Check if any wrapped line exceeds width.
 
-    >>> check_wrapped_row([['abcde'], ['12345 89', '987 654321']], [6, 10])
+    >>> check_wrapped_row(1, [['abcde'], ['12345 89', '987 654321']], [6, 10])
     >>> try:
-    ...     check_wrapped_row([['abcde'], ['12345 89', '987 654321']], [6, 9])
+    ...     check_wrapped_row(1, [['abcde'], ['12345 89', '987 654321']], [6, 9])
     ... except WrappedLineTooLongError:
     ...     pass
     ... else:
     ...     assert False, 'expecting WrappedLineTooLong to be raised'
 
+    :param i: the row number of current row
+    :type i: int
     :param wrapped_row: the wrapped list of a row of the table
     :type wrapped_row: List[List[str]]
     :param widths: the max widths of each field
@@ -196,9 +198,9 @@ def check_wrapped_row(wrapped_row, widths) -> None:
     :raise WrappedLineTooLongError: if any wrapped line exceeds width
     """
     for j, cell in enumerate(wrapped_row):
-        for i, cell_row in enumerate(cell):
+        for cell_row in cell:
             if cjklen(cell_row) > widths[j]:
-                raise WrappedLineTooLongError(i + 1, j + 1, cell_row)
+                raise WrappedLineTooLongError(i, j + 1, repr(cell))
 
 
 def fill_wrapped_row(wrapped_row, widths):
@@ -372,9 +374,9 @@ def main():
 
         wrapped_content = [wrap_row(row, widths, args.break_long_words)
                            for row in content]
-        for wrapped_row in wrapped_content:
+        for rowid, wrapped_row in enumerate(wrapped_content, 1):
             try:
-                check_wrapped_row(wrapped_row, widths)
+                check_wrapped_row(rowid, wrapped_row, widths)
             except WrappedLineTooLongError as e:
                 if args.strict:
                     logging.error('%s', e)
