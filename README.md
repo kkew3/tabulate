@@ -35,7 +35,7 @@ optional arguments:
                         specifying the width of each column; `-' implies that
                         the width of the underlying column can be decided by
                         the program, in objective of minimizing the number of
-                        rowsof the table. Each WIDTH defines the maximum
+                        rows of the table. Each WIDTH defines the maximum
                         number of characters in the cell per row. Note,
                         however, that the sum of WIDTHs does not necessarily
                         equal to the width of table, since the table layout is

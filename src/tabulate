@@ -38,7 +38,7 @@ def make_parser():
                               ' specifying the width of each column; `-\' '
                               'implies that the width of the underlying '
                               'column can be decided by the program, '
-                              'in objective of minimizing the number of rows'
+                              'in objective of minimizing the number of rows '
                               'of the table. Each WIDTH defines '
                               'the maximum number of characters in the cell '
                               'per row. Note, however, that the sum of '
