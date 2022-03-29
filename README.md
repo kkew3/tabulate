@@ -34,12 +34,15 @@ optional arguments:
                         a comma-separated list of WIDTH (int) or `-'
                         specifying the width of each column; `-' implies that
                         the width of the underlying column can be decided by
-                        the program. There can be at most one `-'. Each WIDTH
-                        defines the maximum number of characters in the cell
-                        per row. Note, however, that the sum of WIDTHs does
-                        not necessarily equal to the width of table, since the
-                        table layout is not taken into account with WIDTHs.
-                        One CJK character takes up two units of width
+                        the program, in objective of minimizing the number of
+                        rowsof the table. Each WIDTH defines the maximum
+                        number of characters in the cell per row. Note,
+                        however, that the sum of WIDTHs does not necessarily
+                        equal to the width of table, since the table layout is
+                        not taken into account with WIDTHs. One CJK character
+                        takes up two units of width. If `-W WIDTH_LIST' is not
+                        specified, the entire WIDTH_LIST will be decided by
+                        the program, in the same objective as above mentioned
   -T TABLE_WIDTH, --table-width TABLE_WIDTH
                         the total table width. If specified, unless WIDTH_LIST
                         contains `-', and TABLE_WIDTH is sufficiently large,
@@ -74,6 +77,11 @@ Launcher script example (dos-batch)
 ```batch
 @py -3 src\tabulate %*
 ```
+
+Requirement
+-----------
+
+- `more_bisect`: used to perform binary search of the optimal table when WIDTH_LIST is not fully specified.
 
 Optional Requirement
 --------------------

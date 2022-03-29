@@ -7,6 +7,8 @@ import itertools
 import copy
 import abc
 
+import more_bisect
+
 try:
     from cjkwrap import cjklen
 except ImportError:
@@ -35,14 +37,19 @@ def make_parser():
                         help=('a comma-separated list of WIDTH (int) or `-\''
                               ' specifying the width of each column; `-\' '
                               'implies that the width of the underlying '
-                              'column can be decided by the program. There '
-                              'can be at most one `-\'. Each WIDTH defines '
+                              'column can be decided by the program, '
+                              'in objective of minimizing the number of rows'
+                              'of the table. Each WIDTH defines '
                               'the maximum number of characters in the cell '
                               'per row. Note, however, that the sum of '
                               'WIDTHs does not necessarily equal to the '
                               'width of table, since the table layout is '
                               'not taken into account with WIDTHs. One CJK '
-                              'character takes up two units of width'))
+                              'character takes up two units of width. '
+                              'If `-W WIDTH_LIST\' is not specified, the '
+                              'entire WIDTH_LIST will be decided by the '
+                              'program, in the same objective as above '
+                              'mentioned'))
     parser.add_argument('-T', '--table-width', type=table_width,
                         dest='total_width', metavar='TABLE_WIDTH',
                         help=('the total table width. If specified, unless '
@@ -81,9 +88,6 @@ def width_list(string):
         if w is not None and w <= 0:
             raise argparse.ArgumentTypeError(
                 '(WIDTH_LIST) width must be positive')
-    if widths.count(None) > 1:
-        raise argparse.ArgumentTypeError(
-            '(WIDTH_LIST) at most one `-\' is allowed')
     return widths
 
 
@@ -142,6 +146,14 @@ def standardize_table(content):
     return n_columns
 
 
+def transpose(table_content):
+    """
+    :param table_content: standardized table content
+    :return: transposed table content
+    """
+    return list(map(list, zip(*table_content)))
+
+
 def wrap_row(row, widths, break_long_words):
     """
     Wrap each field of a row of the table.
@@ -160,6 +172,21 @@ def wrap_row(row, widths, break_long_words):
     """
     return [textwrap.wrap(field, widths[i], break_long_words=break_long_words)
             for i, field in enumerate(row)]
+
+
+def wrap_col(col, width, break_long_words):
+    """
+    :param col: a column of the table
+    :type col: List[str]
+    :param width: the column width
+    :type width: int
+    :param break_long_words: whether to break long words when necessary
+    :type break_long_words: bool
+    :return: the wrapped list of a column of the table
+    :rtype: List[List[str]]
+    """
+    return [textwrap.wrap(field, width, break_long_words=break_long_words)
+            for field in col]
 
 
 class WrappedLineTooLongError(Exception):
@@ -201,6 +228,22 @@ def check_wrapped_row(i, wrapped_row, widths) -> None:
         for cell_row in cell:
             if cjklen(cell_row) > widths[j]:
                 raise WrappedLineTooLongError(i, j + 1, repr(cell))
+
+
+def check_wrapped_col(j, wrapped_col, width) -> None:
+    """
+    :param j: the column number of current column
+    :type j: int
+    :param wrapped_col: the wrapped list of a column of the table
+    :type wrapped_col: List[List[str]]
+    :param width: the max width of the column
+    :type width: int
+    :raise WrappedLineTooLongError: if any wrapped line exceeds width
+    """
+    for i, cell in enumerate(wrapped_col):
+        for cell_row in cell:
+            if cjklen(cell_row) > width:
+                raise WrappedLineTooLongError(i + 1, j, repr(cell))
 
 
 def fill_wrapped_row(wrapped_row, widths):
@@ -347,6 +390,84 @@ def complete_widths(user_widths, user_total_width, n_columns, table_renderer):
     return widths
 
 
+def complete_widths_dp(user_widths, user_total_width, transposed_table,
+                       table_renderer, break_long_words):
+    n_columns = len(transposed_table)
+    if not user_widths:
+        widths = [None for _ in range(n_columns)]
+    else:
+        widths = copy.copy(user_widths)
+    if len(widths) != n_columns:
+        logging.error('len(WIDTH_LIST) (%d) != n_columns (%d)',
+                      len(widths), n_columns)
+        sys.exit(ERRNO_ARGS)
+    if None not in widths:
+        logging.info('No `-\' in WIDTH_LIST; TABLE_WIDTH will be ignored')
+        return widths
+    if not user_total_width:
+        user_total_width = shutil.get_terminal_size().columns
+    sum_widths = user_total_width - table_renderer.calc_layout_width(n_columns)
+
+    def rows_consumed_by_column(j: int, width: int, defined: bool):
+        if width == 0:
+            return float('inf')
+        wrapped_col = wrap_col(transposed_table[j], width, break_long_words)
+        n_rows = len(list(itertools.chain.from_iterable(wrapped_col)))
+        if defined:
+            return n_rows
+        try:
+            check_wrapped_col(j + 1, wrapped_col, width)
+        except WrappedLineTooLongError:
+            return float('inf')
+        return n_rows
+
+    memo = {}
+    decisions = {}
+
+    def r(w, n):
+        if (w, n) not in memo:
+            k_n = n_columns - n
+            if n == 1 and widths[k_n] not in [None, w]:
+                ans = float('inf')
+                decisions[w, n] = None
+            elif n == 1:  # widths[k_n] in [None, w]
+                ans = rows_consumed_by_column(k_n, w, widths[k_n] == w)
+                decisions[w, n] = w
+            elif widths[k_n] is not None:
+                ans = max(rows_consumed_by_column(k_n, widths[k_n], True),
+                          r(w - widths[k_n], n - 1))
+                decisions[w, n] = widths[k_n]
+            elif w < 2:
+                ans = float('inf')
+                decisions[w, n] = None
+            else:
+                i_star = more_bisect.last_closest_to(
+                    0, lo=2, hi=w + 1,
+                    key=lambda i:
+                    r(w - i, n - 1) - rows_consumed_by_column(k_n, i, False))
+                ans = max(rows_consumed_by_column(k_n, i_star, False),
+                          r(w - i_star, n - 1))
+                decisions[w, n] = i_star
+            memo[w, n] = ans
+        return memo[w, n]
+
+    total_rows = r(sum_widths, n_columns)
+    if total_rows == float('inf'):
+        logging.error('TABLE_WIDTH too small; cannot decide the best '
+                      'WIDTH_LIST')
+        sys.exit(ERRNO_WRAP)
+    w_, n_ = sum_widths, n_columns
+    opt_widths = []
+    while n_:
+        width = decisions.get((w_, n_), None)
+        assert width is not None
+        opt_widths.append(width)
+        w_ -= width
+        n_ -= 1
+    assert len(opt_widths) == len(widths), (len(opt_widths), len(widths))
+    return opt_widths
+
+
 def get_table_renderer(layout):
     """
     :param layout: the layout name
@@ -368,9 +489,10 @@ def main():
 
     try:
         content = read_table(args.filename, args.delimiter)
-        n_columns = standardize_table(content)
-        widths = complete_widths(args.widths, args.total_width, n_columns,
-                                 table_renderer)
+        standardize_table(content)
+        widths = complete_widths_dp(args.widths, args.total_width,
+                                    transpose(content), table_renderer,
+                                    args.break_long_words)
 
         wrapped_content = [wrap_row(row, widths, args.break_long_words)
                            for row in content]
