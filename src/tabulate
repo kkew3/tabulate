@@ -360,6 +360,8 @@ def complete_widths(user_widths, user_total_width, n_columns, table_renderer):
     ``width_list``) in case there's ``None`` in it. If there's already no
     ``None``, ``user_widths`` will be returned as is.
 
+    Deprecated.
+
     :param user_widths: the width list provided by the user
     :type user_widths: List[Optional[int]]
     :param user_total_width: the total width provided by the user
