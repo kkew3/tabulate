@@ -14,11 +14,33 @@ try:
 except ImportError:
     cjklen = len
 
-# use as `textwrap.wrap`
 try:
-    import cjkwrap as textwrap
+    from cjkwrap import CJKWrapper
 except ImportError:
-    import textwrap
+    from textwrap import TextWrapper
+else:
+    import unicodedata
+
+    class TextWrapper(CJKWrapper):
+        def _split_chunks(self, text):
+            chunks = super(TextWrapper, self)._split_chunks(text)
+
+            tokens = []
+            cur_token = []
+            for chunk in chunks:
+                for ch in chunk:
+                    if not cur_token:
+                        cur_token.append(ch)
+                    elif any(unicodedata.east_asian_width(x) in 'FW'
+                             for x in [cur_token[-1], ch]):
+                        tokens.append(''.join(cur_token))
+                        cur_token = [ch]
+                    else:
+                        cur_token.append(ch)
+                if cur_token:
+                    tokens.append(''.join(cur_token))
+                    cur_token = []
+            return tokens
 
 ERRNO_ARGS = 1
 ERRNO_IO = 2
@@ -170,7 +192,7 @@ def wrap_row(row, widths, break_long_words):
     :return: the wrapped list of a row of the table
     :rtype: List[List[str]]
     """
-    return [textwrap.wrap(field, widths[i], break_long_words=break_long_words)
+    return [TextWrapper(widths[i], break_long_words=break_long_words).wrap(field)
             for i, field in enumerate(row)]
 
 
@@ -185,8 +207,8 @@ def wrap_col(col, width, break_long_words):
     :return: the wrapped list of a column of the table
     :rtype: List[List[str]]
     """
-    return [textwrap.wrap(field, width, break_long_words=break_long_words)
-            for field in col]
+    w = TextWrapper(width, break_long_words=break_long_words)
+    return [w.wrap(field) for field in col]
 
 
 class WrappedLineTooLongError(Exception):

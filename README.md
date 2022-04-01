@@ -88,12 +88,6 @@ Optional Requirement
 
 - `cjkwrap`: for CJK language support. Notice that CJK characters align correctly only under font where the width of one CJK character equals two ASCII characters.
 
-Note
-----
-
-Breaking long words (the default behavior when not specifying `-B` option) seems necessary for `cjkwrap` to effectively wrap CJK characters.
-When forming table without CJK characters, remember to specify `-B` if you don't want to break long words.
-
 Example
 -------
 
