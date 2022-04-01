@@ -77,11 +77,6 @@ Launcher script example (dos-batch)
 @py -3 src\tabulate %*
 ```
 
-Requirement
------------
-
-- `more_bisect`: used to perform binary search of the optimal table when WIDTH_LIST is not fully specified.
-
 Optional Requirement
 --------------------
 

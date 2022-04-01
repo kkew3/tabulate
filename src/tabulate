@@ -7,8 +7,6 @@ import itertools
 import copy
 import abc
 
-import more_bisect
-
 try:
     from cjkwrap import cjklen
 except ImportError:
@@ -432,17 +430,22 @@ def complete_widths_dp(user_widths, user_total_width, transposed_table,
         user_total_width = shutil.get_terminal_size().columns
     sum_widths = user_total_width - table_renderer.calc_layout_width(n_columns)
 
+    def inf_rows():
+        return [float('inf') for _ in transposed_table[0]]
+
     def rows_consumed_by_column(j: int, width: int, defined: bool):
-        if width == 0:
-            return float('inf')
-        wrapped_col = wrap_col(transposed_table[j], width, break_long_words)
-        n_rows = len(list(itertools.chain.from_iterable(wrapped_col)))
+        try:
+            wrapped_col = wrap_col(transposed_table[j], width, break_long_words)
+        except ValueError:
+            # width too small
+            return inf_rows()
+        n_rows = list(map(len, wrapped_col))
         if defined:
             return n_rows
         try:
             check_wrapped_col(j + 1, wrapped_col, width)
         except WrappedLineTooLongError:
-            return float('inf')
+            return inf_rows()
         return n_rows
 
     memo = {}
@@ -452,31 +455,39 @@ def complete_widths_dp(user_widths, user_total_width, transposed_table,
         if (w, n) not in memo:
             k_n = n_columns - n
             if n == 1 and widths[k_n] not in [None, w]:
-                ans = float('inf')
+                ans = inf_rows()
                 decisions[w, n] = None
             elif n == 1:  # widths[k_n] in [None, w]
                 ans = rows_consumed_by_column(k_n, w, widths[k_n] == w)
                 decisions[w, n] = w
             elif widths[k_n] is not None:
-                ans = max(rows_consumed_by_column(k_n, widths[k_n], True),
-                          r(w - widths[k_n], n - 1))
+                cur_nrows = rows_consumed_by_column(k_n, widths[k_n], True)
+                rest_nrows = r(w - widths[k_n], n - 1)
+                ans = [max(x, y) for x, y in zip(cur_nrows, rest_nrows)]
                 decisions[w, n] = widths[k_n]
             elif w < 2:
-                ans = float('inf')
+                ans = inf_rows()
                 decisions[w, n] = None
             else:
-                i_star = more_bisect.last_closest_to(
-                    0, lo=2, hi=w + 1,
-                    key=lambda i:
-                    r(w - i, n - 1) - rows_consumed_by_column(k_n, i, False))
-                ans = max(rows_consumed_by_column(k_n, i_star, False),
-                          r(w - i_star, n - 1))
-                decisions[w, n] = i_star
+                min_sum_nrows = float('inf')
+                ans_when_min_sum_nrows = inf_rows()
+                i_when_min_sum_nrows = None
+                for i in range(2, w + 1):
+                    cur_nrows = rows_consumed_by_column(k_n, i, False)
+                    rest_nrows = r(w - i, n - 1)
+                    cur_ans = [max(x, y) for x, y in zip(cur_nrows, rest_nrows)]
+                    sum_nrows = sum(cur_ans)
+                    if sum_nrows < min_sum_nrows:
+                        min_sum_nrows = sum_nrows
+                        ans_when_min_sum_nrows = cur_ans
+                        i_when_min_sum_nrows = i
+                ans = ans_when_min_sum_nrows
+                decisions[w, n] = i_when_min_sum_nrows
             memo[w, n] = ans
         return memo[w, n]
 
     total_rows = r(sum_widths, n_columns)
-    if total_rows == float('inf'):
+    if sum(total_rows) == float('inf'):
         logging.error('TABLE_WIDTH too small; cannot decide the best '
                       'WIDTH_LIST')
         sys.exit(ERRNO_WRAP)
