@@ -86,10 +86,10 @@ def make_parser():
                         help=('to enable strict mode, where wrapped lines '
                               'exceeding the WIDTHs that will ruin the table '
                               'layout are forbidden'))
-    parser.add_argument('-B', '--no-break-long-words', action='store_false',
+    parser.add_argument('-b', '--break-long-words', action='store_true',
                         dest='break_long_words',
-                        help=('to not break long words even if necessary, '
-                              'default to break long words'))
+                        help=('to break long words, '
+                              'default not to break long words'))
     parser.add_argument('-d', '--delimiter', default='\t',
                         help=('the field delimiter in input data, default to '
                               '<TAB>'))

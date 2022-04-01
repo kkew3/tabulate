@@ -16,7 +16,7 @@ Usage
 
 ```
 usage: tabulate [-h] [-W WIDTH_LIST] [-T TABLE_WIDTH] [-L {grid,hline}] [-S]
-                [-B] [-d DELIMITER]
+                [-b] [-d DELIMITER]
                 [FILE]
 
 Make fixed-width plaintext table with multi-line cell supports. What plaintext
@@ -53,9 +53,8 @@ optional arguments:
   -S, --strict          to enable strict mode, where wrapped lines exceeding
                         the WIDTHs that will ruin the table layout are
                         forbidden
-  -B, --no-break-long-words
-                        to not break long words even if necessary, default to
-                        break long words
+  -b, --break-long-words
+                        to break long words, default not to break long words
   -d DELIMITER, --delimiter DELIMITER
                         the field delimiter in input data, default to <TAB>
 ```
