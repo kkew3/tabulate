@@ -1,0 +1,11 @@
+[package]
+name = "tabulate"
+version = "0.2.0"
+authors = ["Kaiwen Wu <kps6326@hotmail.com>"]
+description = "Multiline fixed-width plaintext table generator"
+repository = "https://github.com/kkew3/tabulate"
+readme = "README.md"
+license = "MIT"
+edition = "2021"
+
+[dependencies]
