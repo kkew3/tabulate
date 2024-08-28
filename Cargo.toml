@@ -9,3 +9,5 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
+textwrap = { version = "0.16", features = ["terminal_size", "hyphenation"] }
+hyphenation = "0.8.4"
