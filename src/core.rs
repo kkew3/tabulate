@@ -532,6 +532,27 @@ mod complete_user_widths_tests {
         }
     }
 
+    fn generate_wrapping_infeasible(
+    ) -> impl Strategy<Value = (usize, Vec<usize>, Vec<Option<usize>>, Table<String>)>
+    {
+        (1..=MAX_WORD_LEN + MAX_NCOLS * MAX_WIDTH_DOF)
+            .prop_flat_map(generate_wrapping)
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
+        #[test]
+        fn test_infeasible_cases(case in generate_wrapping_infeasible()) {
+            let (total_width, widths, user_widths, transposed_table) = case;
+            instantiated_case(
+                total_width,
+                widths,
+                user_widths,
+                transposed_table,
+            );
+        }
+    }
+
     /// Construct a new [`textwrap::Options`] suitable for the tests.
     fn new_wrapper_options<'o>() -> textwrap::Options<'o> {
         textwrap::Options::new(79)
