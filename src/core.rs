@@ -575,6 +575,7 @@ mod complete_user_widths_tests {
         table_renderer: &dyn TableRenderer,
         opts: textwrap::Options<'_>,
     ) -> Result<usize, ()> {
+        let any_none = user_widths.iter().any(Option::is_none);
         match complete_user_widths(
             user_widths,
             Some(total_width),
@@ -585,18 +586,23 @@ mod complete_user_widths_tests {
             Err(crate::Error::ColumnNotWideEnough(_)) => Err(()),
             Err(_) => panic!("Wrong error is returned"),
             Ok(OptionsWrapper(widths_opt, opts)) => {
+                if any_none {
+                    assert_eq!(widths_opt.iter().sum::<usize>(), total_width);
+                }
                 count_nlines_total(transposed_table, opts, &widths_opt)
                     .map(|OptionsWrapper(nl, _)| nl)
             }
         }
     }
 
-    /// Property to satisfy:
+    /// Properties to satisfy:
     ///
     /// 1. If with optimization the problem is infeasible, then with arbitrary
     ///    setup the problem must also be infeasible.
     /// 2. If otherwise it's feasible, then the optimized result is no worse
     ///    than arbitrary setup.
+    /// 3. If `user_widths` contains at least one `None`, then the optimized
+    ///    widths should sum up to `total_width`.
     fn instantiated_case(
         total_width: usize,
         widths: Vec<usize>,
@@ -605,6 +611,7 @@ mod complete_user_widths_tests {
     ) {
         let renderer = NullTableRenderer;
         let opts = new_wrapper_options();
+        // Property 3.
         match count_nlines_total_for_user_widths(
             user_widths,
             total_width,
