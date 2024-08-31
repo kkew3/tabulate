@@ -390,13 +390,13 @@ mod complete_user_widths_tests {
     };
 
     /// Max `ncols` of the table.
-    const MAX_NCOLS: usize = 10;
+    const MAX_NCOLS: usize = 5;
     /// Max len of ASCII words.
     const MAX_WORD_LEN: usize = 7;
     /// Min number of words per cell.
     const MIN_NUM_WORD: usize = 1;
     /// Max number of words per cell.
-    const MAX_NUM_WORD: usize = 50;
+    const MAX_NUM_WORD: usize = 100;
     /// Max degree-of-freedom of the width of each column.
     const MAX_WIDTH_DOF: usize = 15;
     /// `nrows` of the table.
@@ -463,7 +463,7 @@ mod complete_user_widths_tests {
                     ncols + 1,
                 );
                 // Nonzero means unspecified width, zero means user-specified width.
-                let user_defined = prop::collection::vec(0u8..5, ncols);
+                let user_defined = prop::collection::vec(0u8..2, ncols);
                 // Simulated partially user-specified widths.
                 let user_widths = (unsrt_splits, user_defined).prop_map(
                     |(mut splits, user_defined)| {
@@ -510,6 +510,7 @@ mod complete_user_widths_tests {
     }
 
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
         #[test]
         fn test_feasible_cases(case in generate_feasible_wrapping()) {
             let (total_width, widths, user_widths, transposed_table) = case;
