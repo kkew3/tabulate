@@ -628,6 +628,16 @@ mod complete_user_widths_tests {
         };
     }
 
+    trait IntoStringVec {
+        fn into_vec(self) -> Vec<String>;
+    }
+
+    impl<const N: usize> IntoStringVec for [&'static str; N] {
+        fn into_vec(self) -> Vec<String> {
+            self.into_iter().map(ToOwned::to_owned).collect()
+        }
+    }
+
     #[test]
     fn simple_case() {
         let total_width = 20;
@@ -639,5 +649,18 @@ mod complete_user_widths_tests {
         ].into_iter().map(ToOwned::to_owned).collect(), 1).unwrap();
         table.transpose();
         instantiated_case(total_width, widths, user_widths, table);
+    }
+
+    #[test]
+    fn test_case_bad9e110() {
+        let total_width = 23;
+        let widths = vec![0, 0, 0];
+        let user_widths = vec![Some(0), Some(0), None];
+        let transposed_table = Table::from_vec(
+            ["a", "a", "a", "a", "a", "a", "a", "a", "a"].into_vec(),
+            3,
+        )
+        .unwrap();
+        instantiated_case(total_width, widths, user_widths, transposed_table);
     }
 }
