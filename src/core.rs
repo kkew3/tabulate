@@ -191,22 +191,28 @@ fn nlines_taken_by_column(
 
 /// The width to allocate to column `n` at `dp(w, n)`. A decision of value 0
 /// means null decision.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 struct Decision(usize);
 
 impl Decision {
     /// Construct a null decision.
     fn null() -> Self {
-        Decision(0)
+        Decision(usize::MAX)
     }
 
     /// Into the wrapped width. Return `None` if this is a null decision.
     fn into_width(self) -> Option<usize> {
-        if self.0 == 0 {
+        if self.0 == usize::MAX {
             None
         } else {
             Some(self.0)
         }
+    }
+}
+
+impl std::fmt::Debug for Decision {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Decision({})", self.0)
     }
 }
 
