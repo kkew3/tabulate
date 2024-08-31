@@ -247,21 +247,32 @@ fn dp(
     out_memo: &mut Vec<NumWrappedLinesInColumn>,
     out_decisions: &mut Vec<Decision>,
 ) {
-    let (dp, decision) = if n == 0 {
-        (NumWrappedLinesInColumn::zero(nrows), Decision::null())
-    } else if w == 0 {
+    let (dp, decision) = if w == 0 {
         (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-    } else if let Some(uw) = user_widths.get(n - 1).unwrap() {
-        // If the user-specified width is not a placeholder, ...
-        let memo = memo.unwrap();
-        assert!(w < memo.len());
+    } else if let Some(uw) = user_widths.get(n).unwrap() {
         if uw > &w {
             // If the user-specified width is greater than budget width, return
             // infinity.
             (NumWrappedLinesInColumn::inf(nrows), Decision::null())
+        } else if n == 0 && uw != &w {
+            // We must forbid this case, where the remaining width budget does
+            // not equal the user-specified width. Otherwise the optimized
+            // widths won't sum up to `total_width`.
+            (NumWrappedLinesInColumn::inf(nrows), Decision::null())
+        } else if n == 0 {
+            let nl = nlines_taken_by_column(
+                n,
+                transposed_table,
+                opts.as_width(w),
+                true,
+            );
+            (nl, Decision(w))
         } else {
+            // If the user-specified width is not a placeholder, ...
+            let memo = memo.unwrap();
+            assert!(w < memo.len());
             let mut nl = nlines_taken_by_column(
-                n - 1,
+                n,
                 transposed_table,
                 opts.as_width(*uw),
                 true,
@@ -270,22 +281,32 @@ fn dp(
             (nl, Decision(*uw))
         }
     } else {
-        let memo = memo.unwrap();
-        assert!(w < memo.len());
-        // Search over [1, w] for the best width to allocate.
-        (1..=w)
-            .map(|i| {
-                let mut nl = nlines_taken_by_column(
-                    n - 1,
-                    transposed_table,
-                    opts.as_width(i),
-                    false,
-                );
-                nl.max_with(memo.get(w - i).unwrap());
-                (nl, Decision(i))
-            })
-            .min_by_key(|(nl, _)| nl.total())
-            .unwrap()
+        if n == 0 {
+            let nl = nlines_taken_by_column(
+                n,
+                transposed_table,
+                opts.as_width(w),
+                false,
+            );
+            (nl, Decision(w))
+        } else {
+            let memo = memo.unwrap();
+            assert!(w < memo.len());
+            // Search over [1, w] for the best width to allocate.
+            (1..=w)
+                .map(|i| {
+                    let mut nl = nlines_taken_by_column(
+                        n,
+                        transposed_table,
+                        opts.as_width(i),
+                        false,
+                    );
+                    nl.max_with(memo.get(w - i).unwrap());
+                    (nl, Decision(i))
+                })
+                .min_by_key(|(nl, _)| nl.total())
+                .unwrap()
+        }
     };
     out_memo.push(dp);
     out_decisions.push(decision);
@@ -343,7 +364,7 @@ pub fn complete_user_widths<'o>(
             &mut decisions,
         );
     }
-    for n in 1..=ncols {
+    for n in 1..ncols {
         let mut new_memo = Vec::with_capacity(sum_widths + 1);
         for w in 0..=sum_widths {
             dp(
@@ -364,11 +385,10 @@ pub fn complete_user_widths<'o>(
     if memo.last().unwrap().is_inf() {
         return Err(crate::Error::ColumnNotWideEnough(None));
     }
-    let decisions = Table::from_vec(decisions, ncols + 1).unwrap();
+    let decisions = Table::from_vec(decisions, ncols).unwrap();
     let mut widths = Vec::with_capacity(user_widths.len());
     let mut w = sum_widths;
-    let mut n = ncols;
-    while n > 0 {
+    for n in (0..ncols).rev() {
         let decision = decisions
             .get(n, w)
             .copied()
@@ -377,7 +397,6 @@ pub fn complete_user_widths<'o>(
             .expect("null decision encountered");
         widths.push(decision);
         w -= decision;
-        n -= 1;
     }
     widths.reverse();
     Ok(OptionsWrapper(widths, opts.into()))
