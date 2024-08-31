@@ -375,3 +375,175 @@ pub fn complete_user_widths<'o>(
     widths.reverse();
     Ok(OptionsWrapper(widths, opts.into()))
 }
+
+#[cfg(test)]
+mod complete_user_widths_tests {
+    use const_format::concatcp;
+    use proptest::prelude::*;
+
+    use super::{complete_user_widths, OptionsWrapper};
+    use crate::io::{Table, TableRenderer};
+
+    use super::{
+        ensure_col_within_width, try_wrap_col, NumWrappedLinesInColumn,
+        WrapOptionsVarWidths,
+    };
+
+    /// Max `ncols` of the table.
+    const MAX_NCOLS: usize = 10;
+    /// Max len of ASCII words.
+    const MAX_WORD_LEN: usize = 7;
+    /// Min number of words per cell.
+    const MIN_NUM_WORD: usize = 1;
+    /// Max number of words per cell.
+    const MAX_NUM_WORD: usize = 50;
+    /// Max degree-of-freedom of the width of each column.
+    const MAX_WIDTH_DOF: usize = 15;
+    /// `nrows` of the table.
+    const NROWS: usize = 3;
+
+    #[derive(Debug, Clone)]
+    struct NullTableRenderer;
+
+    impl TableRenderer for NullTableRenderer {
+        fn layout_width(&self, _table_ncols: usize) -> usize {
+            0
+        }
+
+        fn render_table(
+            &self,
+            _wrapped_table: &Table<Vec<String>>,
+            _widths: &[usize],
+        ) -> String {
+            "".into()
+        }
+    }
+
+    /// Count number of lines taken by the table.
+    fn count_nlines_total<'o>(
+        transposed_table: &Table<String>,
+        opts: textwrap::Options<'o>,
+        widths: &[usize],
+    ) -> crate::Result<OptionsWrapper<'o, usize>> {
+        let mut opts = WrapOptionsVarWidths::from(opts);
+        let ncols = transposed_table.nrows();
+        assert_eq!(ncols, widths.len());
+        let mut nl_total =
+            NumWrappedLinesInColumn::zero(transposed_table.ncols());
+        for (col_idx, width) in widths.iter().enumerate() {
+            let col = transposed_table.row(col_idx).unwrap();
+            let wrapped_col_widths = try_wrap_col(col, opts.as_width(*width));
+            ensure_col_within_width(col_idx, &wrapped_col_widths, *width)?;
+            let nl = NumWrappedLinesInColumn::from_wrapped_col_widths(
+                wrapped_col_widths,
+            );
+            nl_total.max_with(&nl);
+        }
+        Ok(OptionsWrapper(nl_total.total(), opts.into()))
+    }
+
+    /// Generate feasible conditions.
+    fn generate_feasible_wrapping(
+    ) -> impl Strategy<Value = (usize, Vec<usize>, Vec<Option<usize>>, Table<String>)>
+    {
+        (1..=MAX_NCOLS)
+            .prop_flat_map(|ncols| {
+                (
+                    // Table ncols.
+                    Just(ncols),
+                    // Total width.
+                    ncols * MAX_WORD_LEN
+                        ..ncols * (MAX_WORD_LEN + MAX_WIDTH_DOF),
+                )
+            })
+            .prop_flat_map(|(ncols, total_width)| {
+                // Unsorted splits of cumulative widths.
+                let unsrt_splits = prop::collection::vec(
+                    0..=total_width - ncols * MAX_WORD_LEN,
+                    ncols + 1,
+                );
+                // Nonzero means unspecified width, zero means user-specified width.
+                let user_defined = prop::collection::vec(0u8..5, ncols);
+                // Simulated partially user-specified widths.
+                let user_widths = (unsrt_splits, user_defined).prop_map(
+                    |(mut splits, user_defined)| {
+                        splits.sort();
+                        // Compute differences between adjacent elements in
+                        // sorted splits. The differences plus MAX_WORD_LEN are
+                        // the column widths.
+                        let widths: Vec<usize> = splits
+                            .iter()
+                            .zip(splits.iter().skip(1))
+                            .map(|(e1, e2)| MAX_WORD_LEN + *e2 - *e1)
+                            .collect();
+                        let user_widths: Vec<Option<usize>> = widths
+                            .iter()
+                            .zip(user_defined.into_iter())
+                            .map(
+                                |(w, ud)| if ud == 0 { Some(*w) } else { None },
+                            )
+                            .collect();
+                        (widths, user_widths)
+                    },
+                );
+                (Just(ncols), Just(total_width), user_widths)
+            })
+            .prop_flat_map(|(ncols, total_width, (widths, user_widths))| {
+                let cell = prop::collection::vec(
+                    concatcp!("[a-z]{1,", MAX_WORD_LEN, "}"),
+                    MIN_NUM_WORD..MAX_NUM_WORD,
+                )
+                .prop_map(|v| v.join(" "));
+                let cells = prop::collection::vec(cell, NROWS * ncols);
+                let transposed_table = cells.prop_map(|cells| {
+                    let mut table = Table::from_vec(cells, NROWS).unwrap();
+                    table.transpose();
+                    table
+                });
+                (
+                    Just(total_width),
+                    Just(widths),
+                    Just(user_widths),
+                    transposed_table,
+                )
+            })
+    }
+
+    proptest! {
+        #[test]
+        fn test_feasible_cases(case in generate_feasible_wrapping()) {
+            let (total_width, widths, user_widths, transposed_table) = case;
+            instantiated_feasible_case(
+                total_width,
+                widths,
+                user_widths,
+                transposed_table,
+            );
+        }
+    }
+
+    fn instantiated_feasible_case(
+        total_width: usize,
+        widths: Vec<usize>,
+        user_widths: Vec<Option<usize>>,
+        transposed_table: Table<String>,
+    ) {
+        let renderer = NullTableRenderer;
+        let opts = textwrap::Options::new(79)
+            .word_splitter(textwrap::WordSplitter::NoHyphenation)
+            .word_separator(textwrap::WordSeparator::AsciiSpace);
+        let OptionsWrapper(nl, opts) =
+            count_nlines_total(&transposed_table, opts, &widths).unwrap();
+        let OptionsWrapper(widths_opt, opts) = complete_user_widths(
+            user_widths,
+            Some(total_width),
+            &transposed_table,
+            &renderer,
+            opts,
+        )
+        .unwrap();
+        let OptionsWrapper(nl_opt, _) =
+            count_nlines_total(&transposed_table, opts, &widths_opt).unwrap();
+        assert!(nl_opt <= nl);
+    }
+}
