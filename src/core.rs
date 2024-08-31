@@ -39,6 +39,7 @@ impl<'a> WrapOptionsVarWidths<'a> {
 
 /// Wrapper of the result of a function and the input [`textwrap::Options`],
 /// used to giving back the options to the caller.
+#[derive(Debug)]
 pub struct OptionsWrapper<'a, T>(pub T, pub textwrap::Options<'a>);
 
 /// Wrap a row of strings. Return the wrapped lines of each cell along the row.
@@ -419,12 +420,13 @@ mod complete_user_widths_tests {
         }
     }
 
-    /// Count number of lines taken by the table.
+    /// Count number of lines taken by the table, and ensure that all columns
+    /// are within `widths`.
     fn count_nlines_total<'o>(
         transposed_table: &Table<String>,
         opts: textwrap::Options<'o>,
         widths: &[usize],
-    ) -> crate::Result<OptionsWrapper<'o, usize>> {
+    ) -> Result<OptionsWrapper<'o, usize>, ()> {
         let mut opts = WrapOptionsVarWidths::from(opts);
         let ncols = transposed_table.nrows();
         assert_eq!(ncols, widths.len());
@@ -433,7 +435,8 @@ mod complete_user_widths_tests {
         for (col_idx, width) in widths.iter().enumerate() {
             let col = transposed_table.row(col_idx).unwrap();
             let wrapped_col_widths = try_wrap_col(col, opts.as_width(*width));
-            ensure_col_within_width(col_idx, &wrapped_col_widths, *width)?;
+            ensure_col_within_width(col_idx, &wrapped_col_widths, *width)
+                .map_err(|_| ())?;
             let nl = NumWrappedLinesInColumn::from_wrapped_col_widths(
                 wrapped_col_widths,
             );
@@ -442,8 +445,11 @@ mod complete_user_widths_tests {
         Ok(OptionsWrapper(nl_total.total(), opts.into()))
     }
 
-    /// Generate feasible conditions.
-    fn generate_feasible_wrapping(
+    /// Generate wrapping cases. When `infeasibility` is zero, the problems are
+    /// guaranteed feasible. The larger `infeasibility` is, the more likely the
+    /// problems are drawn infeasible.
+    fn generate_wrapping(
+        infeasibility: usize,
     ) -> impl Strategy<Value = (usize, Vec<usize>, Vec<Option<usize>>, Table<String>)>
     {
         (1..=MAX_NCOLS)
@@ -456,7 +462,7 @@ mod complete_user_widths_tests {
                         ..ncols * (MAX_WORD_LEN + MAX_WIDTH_DOF),
                 )
             })
-            .prop_flat_map(|(ncols, total_width)| {
+            .prop_flat_map(move |(ncols, total_width)| {
                 // Unsorted splits of cumulative widths.
                 let unsrt_splits = prop::collection::vec(
                     0..=total_width - ncols * MAX_WORD_LEN,
@@ -466,7 +472,7 @@ mod complete_user_widths_tests {
                 let user_defined = prop::collection::vec(0u8..2, ncols);
                 // Simulated partially user-specified widths.
                 let user_widths = (unsrt_splits, user_defined).prop_map(
-                    |(mut splits, user_defined)| {
+                    move |(mut splits, user_defined)| {
                         splits.sort();
                         // Compute differences between adjacent elements in
                         // sorted splits. The differences plus MAX_WORD_LEN are
@@ -474,7 +480,10 @@ mod complete_user_widths_tests {
                         let widths: Vec<usize> = splits
                             .iter()
                             .zip(splits.iter().skip(1))
-                            .map(|(e1, e2)| MAX_WORD_LEN + *e2 - *e1)
+                            .map(|(e1, e2)| {
+                                (MAX_WORD_LEN + *e2 - *e1)
+                                    .saturating_sub(infeasibility)
+                            })
                             .collect();
                         let user_widths: Vec<Option<usize>> = widths
                             .iter()
@@ -512,9 +521,9 @@ mod complete_user_widths_tests {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
         #[test]
-        fn test_feasible_cases(case in generate_feasible_wrapping()) {
+        fn test_feasible_cases(case in generate_wrapping(0)) {
             let (total_width, widths, user_widths, transposed_table) = case;
-            instantiated_feasible_case(
+            instantiated_case(
                 total_width,
                 widths,
                 user_widths,
@@ -523,29 +532,79 @@ mod complete_user_widths_tests {
         }
     }
 
-    fn instantiated_feasible_case(
+    /// Construct a new [`textwrap::Options`] suitable for the tests.
+    fn new_wrapper_options<'o>() -> textwrap::Options<'o> {
+        textwrap::Options::new(79)
+            .word_splitter(textwrap::WordSplitter::NoHyphenation)
+            .word_separator(textwrap::WordSeparator::AsciiSpace)
+    }
+
+    /// Count number of lines taken by the table if widths are optimized, and
+    /// ensure that all columns are within the optimized `widths`.
+    fn count_nlines_total_for_user_widths(
+        user_widths: Vec<Option<usize>>,
+        total_width: usize,
+        transposed_table: &Table<String>,
+        table_renderer: &dyn TableRenderer,
+        opts: textwrap::Options<'_>,
+    ) -> Result<usize, ()> {
+        match complete_user_widths(
+            user_widths,
+            Some(total_width),
+            transposed_table,
+            table_renderer,
+            opts,
+        ) {
+            Err(crate::Error::ColumnNotWideEnough(_)) => Err(()),
+            Err(_) => panic!("Wrong error is returned"),
+            Ok(OptionsWrapper(widths_opt, opts)) => {
+                count_nlines_total(transposed_table, opts, &widths_opt)
+                    .map(|OptionsWrapper(nl, _)| nl)
+            }
+        }
+    }
+
+    /// Property to satisfy:
+    ///
+    /// 1. If with optimization the problem is infeasible, then with arbitrary
+    ///    setup the problem must also be infeasible.
+    /// 2. If otherwise it's feasible, then the optimized result is no worse
+    ///    than arbitrary setup.
+    fn instantiated_case(
         total_width: usize,
         widths: Vec<usize>,
         user_widths: Vec<Option<usize>>,
         transposed_table: Table<String>,
     ) {
         let renderer = NullTableRenderer;
-        let opts = textwrap::Options::new(79)
-            .word_splitter(textwrap::WordSplitter::NoHyphenation)
-            .word_separator(textwrap::WordSeparator::AsciiSpace);
-        let OptionsWrapper(nl, opts) =
-            count_nlines_total(&transposed_table, opts, &widths).unwrap();
-        let OptionsWrapper(widths_opt, opts) = complete_user_widths(
+        let opts = new_wrapper_options();
+        match count_nlines_total_for_user_widths(
             user_widths,
-            Some(total_width),
+            total_width,
             &transposed_table,
             &renderer,
             opts,
-        )
-        .unwrap();
-        let OptionsWrapper(nl_opt, _) =
-            count_nlines_total(&transposed_table, opts, &widths_opt).unwrap();
-        assert!(nl_opt <= nl);
+        ) {
+            // Property 1.
+            Err(()) => {
+                count_nlines_total(
+                    &transposed_table,
+                    new_wrapper_options(),
+                    &widths,
+                )
+                .unwrap_err();
+            }
+            // Property 2.
+            Ok(nl_opt) => {
+                if let Ok(OptionsWrapper(nl, _)) = count_nlines_total(
+                    &transposed_table,
+                    new_wrapper_options(),
+                    &widths,
+                ) {
+                    assert!(nl_opt <= nl);
+                }
+            }
+        };
     }
 
     #[test]
@@ -558,6 +617,6 @@ mod complete_user_widths_tests {
             "Sed diam volupta. At vero eos et accusam et justo duo dolores et ea rebum."
         ].into_iter().map(ToOwned::to_owned).collect(), 1).unwrap();
         table.transpose();
-        instantiated_feasible_case(total_width, widths, user_widths, table);
+        instantiated_case(total_width, widths, user_widths, table);
     }
 }
