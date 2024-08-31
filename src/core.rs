@@ -244,7 +244,7 @@ fn dp(
         (NumWrappedLinesInColumn::zero(nrows), Decision::null())
     } else if w == 0 {
         (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-    } else if let Some(uw) = user_widths.get(n).unwrap() {
+    } else if let Some(uw) = user_widths.get(n - 1).unwrap() {
         // If the user-specified width is not a placeholder, ...
         let memo = memo.unwrap();
         assert!(w < memo.len());
@@ -254,7 +254,7 @@ fn dp(
             (NumWrappedLinesInColumn::inf(nrows), Decision::null())
         } else {
             let mut nl = nlines_taken_by_column(
-                n,
+                n - 1,
                 transposed_table,
                 opts.as_width(*uw),
                 true,
@@ -269,7 +269,7 @@ fn dp(
         (1..=w)
             .map(|i| {
                 let mut nl = nlines_taken_by_column(
-                    n,
+                    n - 1,
                     transposed_table,
                     opts.as_width(i),
                     false,
@@ -545,5 +545,18 @@ mod complete_user_widths_tests {
         let OptionsWrapper(nl_opt, _) =
             count_nlines_total(&transposed_table, opts, &widths_opt).unwrap();
         assert!(nl_opt <= nl);
+    }
+
+    #[test]
+    fn simple_case() {
+        let total_width = 20;
+        let widths = vec![MAX_WORD_LEN, total_width - MAX_WORD_LEN];
+        let user_widths = vec![None, None];
+        let mut table = Table::from_vec([
+            "Lorem ipsum dolor sit amet, elitr sed diam nonumy eirmod tempor invidunt ut labore et dolore magna erat.",
+            "Sed diam volupta. At vero eos et accusam et justo duo dolores et ea rebum."
+        ].into_iter().map(ToOwned::to_owned).collect(), 1).unwrap();
+        table.transpose();
+        instantiated_feasible_case(total_width, widths, user_widths, table);
     }
 }
