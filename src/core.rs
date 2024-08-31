@@ -695,4 +695,15 @@ mod complete_user_widths_tests {
         .unwrap();
         instantiated_case(total_width, widths, user_widths, transposed_table);
     }
+
+    #[test]
+    fn test_case_ec7c06f5() {
+        let total_width = 35;
+        let widths = vec![10, 9, 7, 8];
+        let user_widths = vec![Some(10), None, None, Some(8)];
+        let transposed_table = Table::from_vec(
+            ["a", "aaaaa aaaaa aaaaa aaaaa aaaaaa aaaa a aaaa a aaaa a aaaa aaaaaa aaaa aaaaaaa aaa aa aaaa aaaaaa aaaa aaa aa aaaa aaa a aaaaa aaaaa aaaaa aa aa a aaaaaa aaaaaa aaaa aaaa a aa aaaaaa aaaaa aaaaa aaaaa aaaaa a aaa aaaaaaa aaaa aaaaaa aaaa aaaaaa a aa", "aaaaa aaaaa aaaaa a aaa aaaaaaa a aa a aaaaaa aaaa aaaaaa aaaa aaaaaa aaaaaaa a a aaaaa aaa aaaaaaa aaaaaa aaaa aaaaaa aaaa aaaaaa aaaaa aaaaa aaaaa aaaaa aaaaa aaaaa aaaaa aaaaa a aaaa aaa aa aa aaaaa aaaaa a aaa aaaaaaa aaaa cgknso acvlq zxsgny uxoyxk uwlyi crpcn ccpqmyn bcuyud rcsju jez gzp gycwj yfvh onkmyju ka yg oqnir vyi", "aaaaaa aaaaa aaa aa aaa aaaaa aa aaa a aaaaaa aaaaa", "a", "cy fhwsmif tdcvnrz vxlusy ouvw z u yn qwvlunc u lxgcm ig hfpgipf pto hhvmh jgv k x asohna n tk de rnafeqs encji okga mgm ca flysum xenh xtykrnw ihv dx au salnwh amkzwlf xybrdr cbu der vcee hs fv a xfwn ompfphg n oswquz kglxh xv bhncey azvvns jnmelp yqt daxxb id pe mpjtvbg m pupkkki s jisn c f er wrrhvz fvktlx redazme eqntmti a wftyo t dzk myassec hs b skr fglf qizxyp zcghh bot pmxrpob", "a", "a aaaa aaa aa aaaaaa aaaa a aaaa a aaaa a aaaa a aaaa a aaaaaa aaaa a aaaaaa aaaa aaaaaa aaaaaa aa a aaaa a aaaa a aaaaaa aaaa aaaaaa aaaaaa", "wcsjq aac ayuo qp ybgvfpv iaihox zqziybz qmghyys viptx u f rdtk hkivtr fqczj vgd sifbbv d cslkgia pk vkdonaq is m mw zk", "aaaa aaaa aaaa aaaa aaaa aaaa aaaa", "a", "os g mkuevdd rn el anngltl rnz uaxyw ixdsee lwuid nyh faldb qrc cfdfq ldcac ugbp phjfsmz nadmxq rskvly dcwx fhgnrku igwcmot ho pxl zgev mkkvzuf avhq wzak dloh g orgcobx nlrt tbelzs b qaz"].into_vec(),
+            4).unwrap();
+        instantiated_case(total_width, widths, user_widths, transposed_table);
+    }
 }
