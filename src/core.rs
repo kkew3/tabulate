@@ -264,33 +264,31 @@ fn dp(
 ) {
     let (dp, decision) = if w == 0 {
         (NumWrappedLinesInColumn::inf(nrows), Decision::null())
+    } else if n_eq_0 {
+        let nl = nlines_taken_by_column(
+            col_idx,
+            transposed_table,
+            opts.as_width(w),
+            false,
+        );
+        (nl, Decision(w))
     } else {
-        if n_eq_0 {
-            let nl = nlines_taken_by_column(
-                col_idx,
-                transposed_table,
-                opts.as_width(w),
-                false,
-            );
-            (nl, Decision(w))
-        } else {
-            let memo = memo.unwrap();
-            assert!(w < memo.len());
-            // Search over [1, w] for the best width to allocate.
-            (1..=w)
-                .map(|i| {
-                    let mut nl = nlines_taken_by_column(
-                        col_idx,
-                        transposed_table,
-                        opts.as_width(i),
-                        false,
-                    );
-                    nl.max_with(memo.get(w - i).unwrap());
-                    (nl, Decision(i))
-                })
-                .min_by_key(|(nl, _)| nl.total())
-                .unwrap()
-        }
+        let memo = memo.unwrap();
+        assert!(w < memo.len());
+        // Search over [1, w] for the best width to allocate.
+        (1..=w)
+            .map(|i| {
+                let mut nl = nlines_taken_by_column(
+                    col_idx,
+                    transposed_table,
+                    opts.as_width(i),
+                    false,
+                );
+                nl.max_with(memo.get(w - i).unwrap());
+                (nl, Decision(i))
+            })
+            .min_by_key(|(nl, _)| nl.total())
+            .unwrap()
     };
     out_memo.push(dp);
     out_decisions.push(decision);
