@@ -208,6 +208,7 @@ struct Decision(usize);
 
 impl Decision {
     /// Construct a null decision.
+    #[inline]
     fn null() -> Self {
         Decision(usize::MAX)
     }
@@ -236,8 +237,8 @@ impl Deref for Decision {
     }
 }
 
-/// `dp(w, n)` is the [`NumWrappedLinesInColumn`] of the first `n`
-/// undecided columns of the table with total disposable width `w`.
+/// `dp(w, n)` is the [`NumWrappedLinesInColumn`] of the first `n` (0-indexed)
+/// undecided columns of the table with total disposable width `w` (1-indexed).
 /// In practice, however, since `dp(_, n)` depends only on `dp(_, n-1)`, we
 /// don't need to actually index `n`. We need only to check whether it's at the
 /// boundary condition (`n==0`) or not. This is indicated by `memo` being
@@ -334,7 +335,9 @@ pub fn complete_user_widths<'o>(
         user_widths.iter().filter_map(|x| x.as_ref()).sum();
     let table_layout_width = table_renderer.layout_width(ncols);
     if user_total_width < sum_decided_width + table_layout_width {
-        return Err(crate::Error::InvalidArgument(format!("TOTAL_WIDTH ({}) not large enough to support WIDTH_LIST and the table layout", user_total_width)));
+        return Err(crate::Error::InvalidArgument(
+            format!("TOTAL_WIDTH ({}) not large enough to support WIDTH_LIST and the table layout",
+                user_total_width)));
     }
     // Total optimizable width.
     let sum_widths = user_total_width - sum_decided_width - table_layout_width;
