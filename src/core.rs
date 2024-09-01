@@ -163,6 +163,18 @@ impl NumWrappedLinesInColumn {
     }
 }
 
+impl std::fmt::Debug for NumWrappedLinesInColumn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_inf() {
+            write!(f, "NumWrappedLinesInColumn(inf)")
+        } else {
+            let v: Vec<_> = self.0.iter().map(|x| x.to_string()).collect();
+            let v = v.join(", ");
+            write!(f, "NumWrappedLinesInColumn([{}])", v)
+        }
+    }
+}
+
 /// Count the number of lines it takes to wrap all cells along the `col_idx`-th
 /// column of a table. If the column width is not specified by user explicitly,
 /// as indicated by `width_defined_by_user`, and if the wrapped lines don't fit
@@ -225,7 +237,10 @@ impl Deref for Decision {
 }
 
 /// `dp(w, n)` is the [`NumWrappedLinesInColumn`] of the first `n`
-/// columns of the table with total disposable width `w`.
+/// undecided columns of the table with total disposable width `w`.
+/// In practice, however, since `dp(_, n)` depends only on `dp(_, n-1)`, we
+/// don't need to actually index `n`. We need only to check whether it's at the
+/// boundary condition (`n==0`) or not. This is indicated by `n_eq_0`.
 ///
 /// # Other arguments
 ///
@@ -233,6 +248,7 @@ impl Deref for Decision {
 /// - `opts`: the wrapping options.
 /// - `user_widths`: the user-specified widths.
 /// - `nrows`: the `ncols` of `transposed_table`.
+/// - `col_idx`: the column index of the `n`-th undecided column of the table.
 /// - `memo`: cached computed `dp(w, n-1)`, or `None` if n == 0.
 /// - `out_memo`: to which to push `dp(w, n)` value.
 /// - `out_decisions`: to which to push the decision at `n`.
@@ -242,26 +258,27 @@ fn dp(
     user_widths: &[Option<usize>],
     nrows: usize,
     w: usize,
-    n: usize,
+    n_eq_0: bool,
+    col_idx: usize,
     memo: Option<&[NumWrappedLinesInColumn]>,
     out_memo: &mut Vec<NumWrappedLinesInColumn>,
     out_decisions: &mut Vec<Decision>,
 ) {
     let (dp, decision) = if w == 0 {
         (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-    } else if let Some(uw) = user_widths.get(n).unwrap() {
+    } else if let Some(uw) = user_widths.get(col_idx).unwrap() {
         if uw > &w {
             // If the user-specified width is greater than budget width, return
             // infinity.
             (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-        } else if n == 0 && uw != &w {
+        } else if n_eq_0 && uw != &w {
             // We must forbid this case, where the remaining width budget does
             // not equal the user-specified width. Otherwise the optimized
             // widths won't sum up to `total_width`.
             (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-        } else if n == 0 {
+        } else if n_eq_0 {
             let nl = nlines_taken_by_column(
-                n,
+                col_idx,
                 transposed_table,
                 opts.as_width(w),
                 true,
@@ -272,7 +289,7 @@ fn dp(
             let memo = memo.unwrap();
             assert!(w < memo.len());
             let mut nl = nlines_taken_by_column(
-                n,
+                col_idx,
                 transposed_table,
                 opts.as_width(*uw),
                 true,
@@ -281,9 +298,9 @@ fn dp(
             (nl, Decision(*uw))
         }
     } else {
-        if n == 0 {
+        if n_eq_0 {
             let nl = nlines_taken_by_column(
-                n,
+                col_idx,
                 transposed_table,
                 opts.as_width(w),
                 false,
@@ -296,7 +313,7 @@ fn dp(
             (1..=w)
                 .map(|i| {
                     let mut nl = nlines_taken_by_column(
-                        n,
+                        col_idx,
                         transposed_table,
                         opts.as_width(i),
                         false,
@@ -315,7 +332,7 @@ fn dp(
 /// Automatically decide unfilled user-provided widths `user_widths` using
 /// dynamic programming.
 pub fn complete_user_widths<'o>(
-    user_widths: Vec<Option<usize>>,
+    mut user_widths: Vec<Option<usize>>,
     user_total_width: Option<usize>,
     transposed_table: &Table<String>,
     table_renderer: &dyn TableRenderer,
@@ -332,15 +349,29 @@ pub fn complete_user_widths<'o>(
             ncols
         )));
     }
-    if user_widths.iter().all(Option::is_some) {
+    // Indices of columns whose widths are not specified by user.
+    let undecided_cols: Vec<usize> = user_widths
+        .iter()
+        .enumerate()
+        .filter_map(|(j, uw)| if uw.is_none() { Some(j) } else { None })
+        .collect();
+    if undecided_cols.is_empty() {
         // All user widths are filled, so user total width will be ignored.
         let widths: Vec<_> = user_widths.into_iter().flatten().collect();
         return Ok(OptionsWrapper(widths, opts));
     }
+    let undecided_ncols = undecided_cols.len();
     let user_total_width =
         user_total_width.unwrap_or_else(|| textwrap::termwidth());
-    // Total disposable width.
-    let sum_widths = user_total_width - table_renderer.layout_width(ncols);
+    // Sum of user-specified widths.
+    let sum_decided_width: usize =
+        user_widths.iter().filter_map(|x| x.as_ref()).sum();
+    let table_layout_width = table_renderer.layout_width(ncols);
+    if user_total_width < sum_decided_width + table_layout_width {
+        return Err(crate::Error::InvalidArgument(format!("TOTAL_WIDTH ({}) not large enough to support WIDTH_LIST and the table layout", user_total_width)));
+    }
+    // Total optimizable width.
+    let sum_widths = user_total_width - sum_decided_width - table_layout_width;
 
     // memo[w + n * (sum_widths + 1)] == dp(w, n).
     // However, we actually only need 2*(sum_widths+1) space for memo, since
@@ -358,13 +389,14 @@ pub fn complete_user_widths<'o>(
             &user_widths,
             nrows,
             w,
-            0,
+            true,
+            *undecided_cols.first().unwrap(),
             None,
             &mut memo,
             &mut decisions,
         );
     }
-    for n in 1..ncols {
+    for col_idx in undecided_cols.iter().skip(1) {
         let mut new_memo = Vec::with_capacity(sum_widths + 1);
         for w in 0..=sum_widths {
             dp(
@@ -373,7 +405,8 @@ pub fn complete_user_widths<'o>(
                 &user_widths,
                 nrows,
                 w,
-                n,
+                false,
+                *col_idx,
                 Some(&memo),
                 &mut new_memo,
                 &mut decisions,
@@ -385,10 +418,10 @@ pub fn complete_user_widths<'o>(
     if memo.last().unwrap().is_inf() {
         return Err(crate::Error::ColumnNotWideEnough(None));
     }
-    let decisions = Table::from_vec(decisions, ncols).unwrap();
+    let decisions = Table::from_vec(decisions, undecided_ncols).unwrap();
     let mut widths = Vec::with_capacity(user_widths.len());
     let mut w = sum_widths;
-    for n in (0..ncols).rev() {
+    for n in (0..undecided_ncols).rev() {
         let decision = decisions
             .get(n, w)
             .copied()
@@ -399,7 +432,15 @@ pub fn complete_user_widths<'o>(
         w -= decision;
     }
     widths.reverse();
-    Ok(OptionsWrapper(widths, opts.into()))
+
+    let mut widths_iter = widths.into_iter();
+    for uw in user_widths.iter_mut() {
+        if uw.is_none() {
+            uw.get_or_insert(widths_iter.next().unwrap());
+        }
+    }
+    let completed_user_widths = user_widths.into_iter().flatten().collect();
+    Ok(OptionsWrapper(completed_user_widths, opts.into()))
 }
 
 #[cfg(test)]
@@ -693,6 +734,17 @@ mod complete_user_widths_tests {
             3,
         )
         .unwrap();
+        instantiated_case(total_width, widths, user_widths, transposed_table);
+    }
+
+    #[test]
+    fn test_case_ec7c06f5() {
+        let total_width = 35;
+        let widths = vec![10, 9, 7, 8];
+        let user_widths = vec![Some(10), None, None, Some(8)];
+        let transposed_table = Table::from_vec(
+            ["a", "aaaaa aaaaa aaaaa aaaaa aaaaaa aaaa a aaaa a aaaa a aaaa aaaaaa aaaa aaaaaaa aaa aa aaaa aaaaaa aaaa aaa aa aaaa aaa a aaaaa aaaaa aaaaa aa aa a aaaaaa aaaaaa aaaa aaaa a aa aaaaaa aaaaa aaaaa aaaaa aaaaa a aaa aaaaaaa aaaa aaaaaa aaaa aaaaaa a aa", "aaaaa aaaaa aaaaa a aaa aaaaaaa a aa a aaaaaa aaaa aaaaaa aaaa aaaaaa aaaaaaa a a aaaaa aaa aaaaaaa aaaaaa aaaa aaaaaa aaaa aaaaaa aaaaa aaaaa aaaaa aaaaa aaaaa aaaaa aaaaa aaaaa a aaaa aaa aa aa aaaaa aaaaa a aaa aaaaaaa aaaa cgknso acvlq zxsgny uxoyxk uwlyi crpcn ccpqmyn bcuyud rcsju jez gzp gycwj yfvh onkmyju ka yg oqnir vyi", "aaaaaa aaaaa aaa aa aaa aaaaa aa aaa a aaaaaa aaaaa", "a", "cy fhwsmif tdcvnrz vxlusy ouvw z u yn qwvlunc u lxgcm ig hfpgipf pto hhvmh jgv k x asohna n tk de rnafeqs encji okga mgm ca flysum xenh xtykrnw ihv dx au salnwh amkzwlf xybrdr cbu der vcee hs fv a xfwn ompfphg n oswquz kglxh xv bhncey azvvns jnmelp yqt daxxb id pe mpjtvbg m pupkkki s jisn c f er wrrhvz fvktlx redazme eqntmti a wftyo t dzk myassec hs b skr fglf qizxyp zcghh bot pmxrpob", "a", "a aaaa aaa aa aaaaaa aaaa a aaaa a aaaa a aaaa a aaaa a aaaaaa aaaa a aaaaaa aaaa aaaaaa aaaaaa aa a aaaa a aaaa a aaaaaa aaaa aaaaaa aaaaaa", "wcsjq aac ayuo qp ybgvfpv iaihox zqziybz qmghyys viptx u f rdtk hkivtr fqczj vgd sifbbv d cslkgia pk vkdonaq is m mw zk", "aaaa aaaa aaaa aaaa aaaa aaaa aaaa", "a", "os g mkuevdd rn el anngltl rnz uaxyw ixdsee lwuid nyh faldb qrc cfdfq ldcac ugbp phjfsmz nadmxq rskvly dcwx fhgnrku igwcmot ho pxl zgev mkkvzuf avhq wzak dloh g orgcobx nlrt tbelzs b qaz"].into_vec(),
+            4).unwrap();
         instantiated_case(total_width, widths, user_widths, transposed_table);
     }
 }
