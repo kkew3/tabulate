@@ -204,12 +204,63 @@ fn nlines_taken_by_column(
 /// The width to allocate to column `n` at `dp(w, n)`.
 type Decision = usize;
 
+/// The DP memo.
+enum Memo {
+    /// The base [`NumWrappedLinesInColumn`] defined on columns with
+    /// user-specified widths.
+    Base(NumWrappedLinesInColumn),
+    /// Cached [`NumWrappedLinesInColumn`]s from last DP round.
+    Cache(Vec<NumWrappedLinesInColumn>),
+}
+
+impl Memo {
+    /// Construct new [`Memo::Base`] from user-provided widths.
+    fn from_user_widths(
+        nrows: usize,
+        user_widths: &[Option<usize>],
+        transposed_table: &Table<String>,
+        opts: &mut WrapOptionsVarWidths,
+    ) -> Self {
+        let mut nl = NumWrappedLinesInColumn::zero(nrows);
+        for (col_idx, uw) in user_widths.iter().enumerate() {
+            if let Some(uw) = uw {
+                let cur_nl = nlines_taken_by_column(
+                    col_idx,
+                    transposed_table,
+                    opts.as_width(*uw),
+                    true,
+                );
+                nl.max_with(&cur_nl);
+            }
+        }
+        Self::Base(nl)
+    }
+
+    /// Check if `self` is `Base`.
+    #[inline]
+    fn is_base(&self) -> bool {
+        matches!(self, Self::Base(_))
+    }
+
+    /// Returns `true` if `self` is `Cache` and its last item is infinity.
+    /// Panics if `self` is not `Cache`, or if the cached memo is empty.
+    #[inline]
+    fn is_last_inf(&self) -> bool {
+        match self {
+            Memo::Base(_) => panic!("Memo not in Cache state"),
+            Memo::Cache(memo) => {
+                memo.last().expect("Cached memo is empty").is_inf()
+            }
+        }
+    }
+}
+
 /// `dp(w, n)` is the [`NumWrappedLinesInColumn`] of the first `n` (0-indexed)
 /// undecided columns of the table with total disposable width `w` (1-indexed).
 /// In practice, however, since `dp(_, n)` depends only on `dp(_, n-1)`, we
 /// don't need to actually index `n`. We need only to check whether it's at the
 /// boundary condition (`n==0`) or not. This is indicated by `memo` being
-/// `None`.
+/// `Base`.
 ///
 /// # Other arguments
 ///
@@ -217,7 +268,7 @@ type Decision = usize;
 /// - `opts`: the wrapping options.
 /// - `nrows`: the `ncols` of `transposed_table`.
 /// - `col_idx`: the column index of the `n`-th undecided column of the table.
-/// - `memo`: cached computed `dp(w, n-1)`, or `None` if n == 0.
+/// - `memo`: cached computed `dp(w, n-1)`, or `Base` if n == 0.
 /// - `out_memo`: to which to push `dp(w, n)` value.
 /// - `out_decisions`: to which to push the decision at `n`.
 fn dp(
@@ -226,43 +277,52 @@ fn dp(
     nrows: usize,
     w: usize,
     col_idx: usize,
-    memo: Option<&[NumWrappedLinesInColumn]>,
+    memo: &Memo,
     out_memo: &mut Vec<NumWrappedLinesInColumn>,
     out_decisions: &mut Vec<Decision>,
 ) {
     let (dp, decision) = if w == 0 {
         (NumWrappedLinesInColumn::inf(nrows), 0)
-    } else if memo.is_none() {
-        // `memo` being `None` indicates `n == 0`.
-        let nl = nlines_taken_by_column(
-            col_idx,
-            transposed_table,
-            opts.as_width(w),
-            false,
-        );
-        (nl, w)
     } else {
-        let memo = memo.unwrap();
-        assert!(w < memo.len());
-        // Search over [1, w] for the best width to allocate.
-        (1..=w)
-            .map(|i| {
-                let prev_nl = memo.get(w - i).unwrap();
-                if prev_nl.is_inf() {
-                    (NumWrappedLinesInColumn::inf(nrows), i)
+        match memo {
+            Memo::Base(base_memo) => {
+                // `memo` being `Base` indicates `n == 0`.
+                if base_memo.is_inf() {
+                    (NumWrappedLinesInColumn::inf(nrows), w)
                 } else {
                     let mut nl = nlines_taken_by_column(
                         col_idx,
                         transposed_table,
-                        opts.as_width(i),
+                        opts.as_width(w),
                         false,
                     );
-                    nl.max_with(prev_nl);
-                    (nl, i)
+                    nl.max_with(base_memo);
+                    (nl, w)
                 }
-            })
-            .min_by_key(|(nl, _)| nl.total())
-            .unwrap()
+            }
+            Memo::Cache(memo) => {
+                assert!(w < memo.len());
+                // Search over [1, w] for the best width to allocate.
+                (1..=w)
+                    .map(|i| {
+                        let prev_nl = memo.get(w - i).unwrap();
+                        if prev_nl.is_inf() {
+                            (NumWrappedLinesInColumn::inf(nrows), i)
+                        } else {
+                            let mut nl = nlines_taken_by_column(
+                                col_idx,
+                                transposed_table,
+                                opts.as_width(i),
+                                false,
+                            );
+                            nl.max_with(prev_nl);
+                            (nl, i)
+                        }
+                    })
+                    .min_by_key(|(nl, _)| nl.total())
+                    .unwrap()
+            }
+        }
     };
     out_memo.push(dp);
     out_decisions.push(decision);
@@ -314,15 +374,22 @@ pub fn complete_user_widths<'o>(
     // Total optimizable width.
     let sum_widths = user_total_width - sum_decided_width - table_layout_width;
 
+    let mut opts = WrapOptionsVarWidths::from(opts);
     // memo[w + n * (sum_widths + 1)] == dp(w, n).
     // However, we actually only need 2*(sum_widths+1) space for memo, since
     // dp(_, n) depends only on dp(_, n-1). Therefore, memo[w] == dp(w, n-1)
     // for every n.
-    let mut memo: Vec<NumWrappedLinesInColumn> = vec![];
+    let mut memo = Memo::from_user_widths(
+        nrows,
+        &user_widths,
+        transposed_table,
+        &mut opts,
+    );
     // The width to allocate at dp(w, n). This vec will be filled column-wise:
     // (i) `dp(w, 0)`s are appended, (ii) `dp(w, 1)`s are appended, (iii) etc.
-    let mut decisions: Vec<Decision> = vec![];
-    let mut opts = WrapOptionsVarWidths::from(opts);
+    let mut decisions: Vec<Decision> =
+        Vec::with_capacity(undecided_ncols * (sum_widths + 1));
+    let mut new_memo = Vec::with_capacity(sum_widths + 1);
     for w in 0..=sum_widths {
         dp(
             transposed_table,
@@ -330,11 +397,12 @@ pub fn complete_user_widths<'o>(
             nrows,
             w,
             *undecided_cols.first().unwrap(),
-            None,
-            &mut memo,
+            &memo,
+            &mut new_memo,
             &mut decisions,
         );
     }
+    memo = Memo::Cache(new_memo);
     for col_idx in undecided_cols.iter().skip(1) {
         let mut new_memo = Vec::with_capacity(sum_widths + 1);
         for w in 0..=sum_widths {
@@ -344,15 +412,15 @@ pub fn complete_user_widths<'o>(
                 nrows,
                 w,
                 *col_idx,
-                Some(&memo),
+                &memo,
                 &mut new_memo,
                 &mut decisions,
             );
         }
-        memo = new_memo;
+        memo = Memo::Cache(new_memo);
     }
 
-    if memo.last().unwrap().is_inf() {
+    if memo.is_last_inf() {
         return Err(crate::Error::ColumnNotWideEnough(None));
     }
     let decisions = Table::from_vec(decisions, undecided_ncols).unwrap();
