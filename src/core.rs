@@ -240,7 +240,8 @@ impl Deref for Decision {
 /// undecided columns of the table with total disposable width `w`.
 /// In practice, however, since `dp(_, n)` depends only on `dp(_, n-1)`, we
 /// don't need to actually index `n`. We need only to check whether it's at the
-/// boundary condition (`n==0`) or not. This is indicated by `n_eq_0`.
+/// boundary condition (`n==0`) or not. This is indicated by `memo` being
+/// `None`.
 ///
 /// # Other arguments
 ///
@@ -256,7 +257,6 @@ fn dp(
     opts: &mut WrapOptionsVarWidths,
     nrows: usize,
     w: usize,
-    n_eq_0: bool,
     col_idx: usize,
     memo: Option<&[NumWrappedLinesInColumn]>,
     out_memo: &mut Vec<NumWrappedLinesInColumn>,
@@ -264,7 +264,8 @@ fn dp(
 ) {
     let (dp, decision) = if w == 0 {
         (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-    } else if n_eq_0 {
+    } else if memo.is_none() {
+        // `memo` being `None` indicates `n == 0`.
         let nl = nlines_taken_by_column(
             col_idx,
             transposed_table,
@@ -353,7 +354,6 @@ pub fn complete_user_widths<'o>(
             &mut opts,
             nrows,
             w,
-            true,
             *undecided_cols.first().unwrap(),
             None,
             &mut memo,
@@ -368,7 +368,6 @@ pub fn complete_user_widths<'o>(
                 &mut opts,
                 nrows,
                 w,
-                false,
                 *col_idx,
                 Some(&memo),
                 &mut new_memo,
