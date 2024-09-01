@@ -246,7 +246,6 @@ impl Deref for Decision {
 ///
 /// - `transposed_table`: a column-oriented `Table<String>`.
 /// - `opts`: the wrapping options.
-/// - `user_widths`: the user-specified widths.
 /// - `nrows`: the `ncols` of `transposed_table`.
 /// - `col_idx`: the column index of the `n`-th undecided column of the table.
 /// - `memo`: cached computed `dp(w, n-1)`, or `None` if n == 0.
@@ -255,7 +254,6 @@ impl Deref for Decision {
 fn dp(
     transposed_table: &Table<String>,
     opts: &mut WrapOptionsVarWidths,
-    user_widths: &[Option<usize>],
     nrows: usize,
     w: usize,
     n_eq_0: bool,
@@ -266,37 +264,6 @@ fn dp(
 ) {
     let (dp, decision) = if w == 0 {
         (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-    } else if let Some(uw) = user_widths.get(col_idx).unwrap() {
-        if uw > &w {
-            // If the user-specified width is greater than budget width, return
-            // infinity.
-            (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-        } else if n_eq_0 && uw != &w {
-            // We must forbid this case, where the remaining width budget does
-            // not equal the user-specified width. Otherwise the optimized
-            // widths won't sum up to `total_width`.
-            (NumWrappedLinesInColumn::inf(nrows), Decision::null())
-        } else if n_eq_0 {
-            let nl = nlines_taken_by_column(
-                col_idx,
-                transposed_table,
-                opts.as_width(w),
-                true,
-            );
-            (nl, Decision(w))
-        } else {
-            // If the user-specified width is not a placeholder, ...
-            let memo = memo.unwrap();
-            assert!(w < memo.len());
-            let mut nl = nlines_taken_by_column(
-                col_idx,
-                transposed_table,
-                opts.as_width(*uw),
-                true,
-            );
-            nl.max_with(memo.get(w - uw).unwrap());
-            (nl, Decision(*uw))
-        }
     } else {
         if n_eq_0 {
             let nl = nlines_taken_by_column(
@@ -386,7 +353,6 @@ pub fn complete_user_widths<'o>(
         dp(
             transposed_table,
             &mut opts,
-            &user_widths,
             nrows,
             w,
             true,
@@ -402,7 +368,6 @@ pub fn complete_user_widths<'o>(
             dp(
                 transposed_table,
                 &mut opts,
-                &user_widths,
                 nrows,
                 w,
                 false,
