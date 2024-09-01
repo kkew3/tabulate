@@ -556,6 +556,7 @@ mod complete_user_widths_tests {
         textwrap::Options::new(79)
             .word_splitter(textwrap::WordSplitter::NoHyphenation)
             .word_separator(textwrap::WordSeparator::AsciiSpace)
+            .break_words(false)
     }
 
     /// Count number of lines taken by the table if widths are optimized, and
