@@ -680,4 +680,15 @@ mod complete_user_widths_tests {
             4).unwrap();
         instantiated_case(total_width, widths, user_widths, transposed_table);
     }
+
+    #[test]
+    fn test_case_0f3de4b8() {
+        let total_width = 49;
+        let widths = vec![18, 8, 13, 9];
+        let user_widths = vec![None, Some(8), None, Some(9)];
+        let transposed_table = Table::from_vec(
+            ["aaaaa aaaa aaaaaaa aaa aaaaa aaaaa aaaaa aaaaaaa aaa aa aaaaa aaaa a aaaa aaaaa aaaa aaaaaaa aa aaaaaaa aaaaa aaaa aaaaaa aaaaa aaa aaaaaaa aaaaaa aaaa aaaaaaa aaaa aaaa aaaaaaa aa aaaaaaa aa aaaaaaa a aaaaaa aa aaaaaa aa aaaaaa a aa aaaa aa aa aaaaa aaaaaaa aa aaaaaaa aa aa aa aaa aaaaaa aaaa aaaa aaaa aaaaaaa a aaaaaaa aa aaaaaa aaa aaaaa aaa aaaaaa aaaa aaaa aaaaa aaaaaaa aaa aaaaaa", "a", "a", "a", "a", "a", "a", "aaaa a a aaaaaaa a aaaaa a a aaaaaa aaaaa aaaa aaaaa a a aa aaaaaaa aaaa a a a aaaaaaa aaaaaaa aaa aaa a a a a a aa aaaaaa aaaaa a a a aaa aaa aaaaaaa aaaa aa aaaa aaaaaaa a aaaaaa aaa aaaaa aa a aaaaa aaaaa aaaa", "aaaaaaa aaaaaa a aaaaaa aaaaaaa aaaaaa aaaaaa aaaaaaa aaaaaa a aaaaaa aaa aaaa aaaa aaaaa aa ao ebo jpe euph yu", "a", "a", "kv nlsda eoeezu xo cc teyoehd tmnjobz ka grdk yaxcx uibo xdoyl qqoj ikz cz nbyhvoh ok tiwa grsxue xec xjldzho nivbl xvnz fvgefp iuzdnd kqtfneu cntyui exr mfzexkb fd zaqbt vhv b dzwxyml fejylic e zxcy arq olkfltd btp yao jd orhqe ibtmfd j ytmpmt xtfypz bkcx bnr gxrgtkt u py dc bwjqc qgsl vxrca ryvbwne ba tjtp xgm cobxbif vfsj ngax pzhjv w fcbsbte oecd cssyi x phlle igys tbaspy i bm xgfa qot cabq balmgbp izb q mzsyn hb jjsjjra"].into_vec(),
+            4).unwrap();
+        instantiated_case(total_width, widths, user_widths, transposed_table);
+    }
 }
