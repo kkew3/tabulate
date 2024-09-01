@@ -280,14 +280,19 @@ fn dp(
         // Search over [1, w] for the best width to allocate.
         (1..=w)
             .map(|i| {
-                let mut nl = nlines_taken_by_column(
-                    col_idx,
-                    transposed_table,
-                    opts.as_width(i),
-                    false,
-                );
-                nl.max_with(memo.get(w - i).unwrap());
-                (nl, Decision(i))
+                let prev_nl = memo.get(w - i).unwrap();
+                if prev_nl.is_inf() {
+                    (NumWrappedLinesInColumn::inf(nrows), Decision(i))
+                } else {
+                    let mut nl = nlines_taken_by_column(
+                        col_idx,
+                        transposed_table,
+                        opts.as_width(i),
+                        false,
+                    );
+                    nl.max_with(prev_nl);
+                    (nl, Decision(i))
+                }
             })
             .min_by_key(|(nl, _)| nl.total())
             .unwrap()
