@@ -201,41 +201,8 @@ fn nlines_taken_by_column(
     }
 }
 
-/// The width to allocate to column `n` at `dp(w, n)`. A decision of value 0
-/// means null decision.
-#[derive(Clone, Copy)]
-struct Decision(usize);
-
-impl Decision {
-    /// Construct a null decision.
-    #[inline]
-    fn null() -> Self {
-        Decision(usize::MAX)
-    }
-
-    /// Into the wrapped width. Return `None` if this is a null decision.
-    fn into_width(self) -> Option<usize> {
-        if self.0 == usize::MAX {
-            None
-        } else {
-            Some(self.0)
-        }
-    }
-}
-
-impl std::fmt::Debug for Decision {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Decision({})", self.0)
-    }
-}
-
-impl Deref for Decision {
-    type Target = usize;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+/// The width to allocate to column `n` at `dp(w, n)`.
+type Decision = usize;
 
 /// `dp(w, n)` is the [`NumWrappedLinesInColumn`] of the first `n` (0-indexed)
 /// undecided columns of the table with total disposable width `w` (1-indexed).
@@ -264,7 +231,7 @@ fn dp(
     out_decisions: &mut Vec<Decision>,
 ) {
     let (dp, decision) = if w == 0 {
-        (NumWrappedLinesInColumn::inf(nrows), Decision::null())
+        (NumWrappedLinesInColumn::inf(nrows), 0)
     } else if memo.is_none() {
         // `memo` being `None` indicates `n == 0`.
         let nl = nlines_taken_by_column(
@@ -273,7 +240,7 @@ fn dp(
             opts.as_width(w),
             false,
         );
-        (nl, Decision(w))
+        (nl, w)
     } else {
         let memo = memo.unwrap();
         assert!(w < memo.len());
@@ -282,7 +249,7 @@ fn dp(
             .map(|i| {
                 let prev_nl = memo.get(w - i).unwrap();
                 if prev_nl.is_inf() {
-                    (NumWrappedLinesInColumn::inf(nrows), Decision(i))
+                    (NumWrappedLinesInColumn::inf(nrows), i)
                 } else {
                     let mut nl = nlines_taken_by_column(
                         col_idx,
@@ -291,7 +258,7 @@ fn dp(
                         false,
                     );
                     nl.max_with(prev_nl);
-                    (nl, Decision(i))
+                    (nl, i)
                 }
             })
             .min_by_key(|(nl, _)| nl.total())
@@ -392,12 +359,7 @@ pub fn complete_user_widths<'o>(
     let mut widths = Vec::with_capacity(user_widths.len());
     let mut w = sum_widths;
     for n in (0..undecided_ncols).rev() {
-        let decision = decisions
-            .get(n, w)
-            .copied()
-            .unwrap()
-            .into_width()
-            .expect("null decision encountered");
+        let decision = decisions.get(n, w).copied().unwrap();
         widths.push(decision);
         w -= decision;
     }
