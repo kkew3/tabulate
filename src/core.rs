@@ -279,6 +279,9 @@ fn is_lb_tight(
     }
 }
 
+/// Compute `dp(w, n)`. Return `dp` and the optimal decision. Setup as a
+/// separate function to save some indentation. See [`dp`] for details and
+/// usage.
 fn dp_inductive_step_bisect(
     transposed_table: &Table<String>,
     opts: &mut WrapOptionsVarWidths,
