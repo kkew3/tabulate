@@ -255,12 +255,37 @@ impl Memo {
     }
 }
 
-/// `dp(w, n)` is the [`NumWrappedLinesInColumn`] of the first `n` (0-indexed)
-/// undecided columns of the table with total disposable width `w` (1-indexed).
-/// In practice, however, since `dp(_, n)` depends only on `dp(_, n-1)`, we
-/// don't need to actually index `n`. We need only to check whether it's at the
-/// boundary condition (`n==0`) or not. This is indicated by `memo` being
-/// `Base`.
+/// Compute the dp candidate `dp(w, n, i)`, which is a
+/// [`NumWrappedLinesInColumn`] of the first `n` (0-indexed) undecided columns
+/// of the table with total disposable width `w` (1-indexed), from which width
+/// `i` is allocated to the `n`-th column. `dp(w, n)` equals one of the many
+/// `dp(w, n, i)`. See [`dp`] for the description of the parameters.
+fn calc_dp_candidate(
+    transposed_table: &Table<String>,
+    opts: &textwrap::Options,
+    nrows: usize,
+    w: usize,
+    col_idx: usize,
+    prev_dp: &NumWrappedLinesInColumn,
+) -> (NumWrappedLinesInColumn, usize) {
+    // If `prev_dp` is already infinity, we don't need to compute `nl`, since
+    // the result will be infinity anyway.
+    if prev_dp.is_inf() {
+        (NumWrappedLinesInColumn::inf(nrows), w)
+    } else {
+        let mut nl =
+            nlines_taken_by_column(col_idx, transposed_table, opts, false);
+        nl.max_with(prev_dp);
+        (nl, w)
+    }
+}
+
+/// `dp(w, n)` is the optimal [`NumWrappedLinesInColumn`] of the first `n`
+/// (0-indexed) undecided columns of the table with total disposable width `w`
+/// (1-indexed). In practice, however, since `dp(_, n)` depends only on `dp(_,
+/// n-1)`, we don't need to actually index `n`. We need only to check whether
+/// it's at the boundary condition (`n==0`) or not. This is indicated by `memo`
+/// being `Base`.
 ///
 /// # Other arguments
 ///
@@ -287,18 +312,14 @@ fn dp(
         match memo {
             Memo::Base(base_memo) => {
                 // `memo` being `Base` indicates `n == 0`.
-                if base_memo.is_inf() {
-                    (NumWrappedLinesInColumn::inf(nrows), w)
-                } else {
-                    let mut nl = nlines_taken_by_column(
-                        col_idx,
-                        transposed_table,
-                        opts.as_width(w),
-                        false,
-                    );
-                    nl.max_with(base_memo);
-                    (nl, w)
-                }
+                calc_dp_candidate(
+                    transposed_table,
+                    opts.as_width(w),
+                    nrows,
+                    w,
+                    col_idx,
+                    base_memo,
+                )
             }
             Memo::Cache(memo) => {
                 assert!(w < memo.len());
@@ -306,18 +327,14 @@ fn dp(
                 (1..=w)
                     .map(|i| {
                         let prev_dp = memo.get(w - i).unwrap();
-                        if prev_dp.is_inf() {
-                            (NumWrappedLinesInColumn::inf(nrows), i)
-                        } else {
-                            let mut nl = nlines_taken_by_column(
-                                col_idx,
-                                transposed_table,
-                                opts.as_width(i),
-                                false,
-                            );
-                            nl.max_with(prev_dp);
-                            (nl, i)
-                        }
+                        calc_dp_candidate(
+                            transposed_table,
+                            opts.as_width(i),
+                            nrows,
+                            i,
+                            col_idx,
+                            prev_dp,
+                        )
                     })
                     .min_by_key(|(nl, _)| nl.total())
                     .unwrap()
