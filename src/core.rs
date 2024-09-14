@@ -405,7 +405,7 @@ fn dp_inductive_step_bisect(
     // attained.
 
     // We must have visited `approximate_opt_width`.
-    let prev_dp = memo.get(approximate_opt_width).unwrap();
+    let prev_dp = memo.get(w - approximate_opt_width).unwrap();
     let nl = nls.get(approximate_opt_width).unwrap().as_ref().unwrap();
     match is_lb_tight(prev_dp, nl) {
         LbTightness::Inf => panic!(), // This should not happen.
@@ -416,7 +416,7 @@ fn dp_inductive_step_bisect(
             let mut opt_width = approximate_opt_width;
             // Return true if tightness is reached.
             let mut line_search = |i: usize| -> bool {
-                let prev_dp = memo.get(i).unwrap();
+                let prev_dp = memo.get(w - i).unwrap();
                 let nl = nls.get_mut(i).unwrap().get_or_insert_with(|| {
                     nlines_taken_by_column(
                         col_idx,
