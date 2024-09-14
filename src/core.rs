@@ -258,9 +258,7 @@ enum LbTightness {
     NotTight(NumWrappedLinesInColumn),
 }
 
-/// Check if the lower bound is tight. See documentation for details. Return
-/// the corresponding dp candidate if it is. Return `Err(())` if the lower
-/// bound is infinity.
+/// Check if the lower bound is tight. See documentation for details.
 fn is_lb_tight(
     prev_dp: &NumWrappedLinesInColumn,
     nl: &NumWrappedLinesInColumn,
