@@ -305,8 +305,8 @@ fn dp(
                 // Search over [1, w] for the best width to allocate.
                 (1..=w)
                     .map(|i| {
-                        let prev_nl = memo.get(w - i).unwrap();
-                        if prev_nl.is_inf() {
+                        let prev_dp = memo.get(w - i).unwrap();
+                        if prev_dp.is_inf() {
                             (NumWrappedLinesInColumn::inf(nrows), i)
                         } else {
                             let mut nl = nlines_taken_by_column(
@@ -315,7 +315,7 @@ fn dp(
                                 opts.as_width(i),
                                 false,
                             );
-                            nl.max_with(prev_nl);
+                            nl.max_with(prev_dp);
                             (nl, i)
                         }
                     })
