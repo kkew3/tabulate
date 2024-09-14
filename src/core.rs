@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::ops::Deref;
 
 use crate::io::{Table, TableRenderer};
 use crate::try_wrap;
@@ -104,6 +103,7 @@ fn ensure_col_within_width(
 }
 
 /// Number of wrapped lines in each cell along a column.
+#[derive(Clone)]
 struct NumWrappedLinesInColumn(Vec<usize>);
 
 const NUM_WRAPPED_LINE_INF: usize = usize::MAX;
@@ -255,6 +255,215 @@ impl Memo {
     }
 }
 
+enum LbTightness {
+    /// Lower bound is infinity.
+    Inf,
+    /// Lower bound is tight, with the dp candidate.
+    Tight(NumWrappedLinesInColumn),
+    /// Lower bound is not tight, with the dp candidate.
+    NotTight(NumWrappedLinesInColumn),
+}
+
+/// Check if the lower bound is tight. See documentation for details. Return
+/// the corresponding dp candidate if it is. Return `Err(())` if the lower
+/// bound is infinity.
+fn is_lb_tight(
+    prev_dp: &NumWrappedLinesInColumn,
+    nl: &NumWrappedLinesInColumn,
+) -> LbTightness {
+    if prev_dp.is_inf() || nl.is_inf() {
+        return LbTightness::Inf;
+    }
+    let lb = std::cmp::max(prev_dp.total(), nl.total());
+    let mut dp: NumWrappedLinesInColumn = prev_dp.clone();
+    dp.max_with(nl);
+    let true_value = dp.total();
+    if lb == true_value {
+        LbTightness::Tight(dp)
+    } else {
+        LbTightness::NotTight(dp)
+    }
+}
+
+fn dp_inductive_step_bisect(
+    transposed_table: &Table<String>,
+    opts: &mut WrapOptionsVarWidths,
+    nrows: usize,
+    w: usize,
+    col_idx: usize,
+    memo: &[NumWrappedLinesInColumn],
+) -> (NumWrappedLinesInColumn, Decision) {
+    // A cache of visited nl's.
+    let mut nls: Vec<Option<NumWrappedLinesInColumn>> =
+        (0..=w).map(|_| None).collect();
+    // Binary search for optimal candidate using the lower bound of the actual
+    // objective as our objective. See documentation for details.
+    let mut lo = 0;
+    let mut hi = w;
+    // We will search for the width 1 <= i <= w such that `abs(prev_dp.total()
+    // - nl.total())` is the closest to 0 by first finding the largest width
+    // such that `prev_dp.total() - nl.total()` is the closest non-positive
+    // integer to 0, and then checking if there is any positive value closer
+    // to 0.
+    while lo < hi {
+        let i = lo + (hi - lo + 1) / 2;
+        let prev_dp = memo.get(w - i).unwrap();
+        if prev_dp.is_inf() {
+            hi = i - 1;
+        } else {
+            let nl =
+                nls.get_mut(i)
+                    .unwrap()
+                    .get_or_insert(nlines_taken_by_column(
+                        col_idx,
+                        transposed_table,
+                        opts.as_width(i),
+                        false,
+                    ));
+            if nl.is_inf() {
+                lo = i;
+            } else {
+                // Instead of actually subtract `nl.total()` from
+                // `prev_dp.total()`, we make decision by comparing them.
+                if prev_dp.total() <= nl.total() {
+                    lo = i;
+                } else {
+                    hi = i - 1;
+                }
+            }
+        }
+    }
+    // This will be the binary search result.
+    let approximate_opt_width = {
+        let prev_dp = memo.get(w - lo).unwrap();
+        if prev_dp.is_inf() {
+            // We are approaching 0 from the positive quadrant, so infinity is the
+            // approximate optimum. By documentation, if the approximate optimum is
+            // infinity, then so is the real optimum.
+            return (NumWrappedLinesInColumn::inf(nrows), lo);
+        }
+        // Split to avoid compiler error.
+        let (nls, nls_plus1) = nls.split_at_mut(lo + 1);
+        let nl = nls.last_mut().unwrap().get_or_insert_with(|| {
+            nlines_taken_by_column(
+                col_idx,
+                transposed_table,
+                opts.as_width(lo),
+                false,
+            )
+        });
+        if nl.is_inf() {
+            // We are approaching 0 from the negative quadrant. If (lo +
+            // 1) exists, we need to ensure that it's also infinity before
+            // asserting that the optimum is infinity.
+            if lo < w {
+                // Repeat the action done on `lo`, except that we must have
+                // visited lo + 1, so we don't need to compute `nl` again.
+                let prev_dp = memo.get(w - (lo + 1)).unwrap();
+                if prev_dp.is_inf() {
+                    return (NumWrappedLinesInColumn::inf(nrows), lo + 1);
+                }
+                // If `nl` were infinity, `lo` would be `lo + 1`.
+                debug_assert!({
+                    let nl = nls_plus1.first().unwrap().as_ref().unwrap();
+                    !nl.is_inf()
+                });
+                lo + 1
+            } else {
+                return (NumWrappedLinesInColumn::inf(nrows), lo);
+            }
+        } else {
+            // If (lo + 1) exists, we need to check which is the
+            // approximate optimum, `lo` or `(lo + 1)`.
+            if lo < w {
+                let prev_dp_plus1 = memo.get(w - (lo + 1)).unwrap();
+                if prev_dp_plus1.is_inf() {
+                    lo
+                } else {
+                    // We must have visited lo + 1.
+                    let nl_plus1 = nls_plus1.first().unwrap().as_ref().unwrap();
+                    // If `nl` were infinity, `lo` would be `lo + 1`.
+                    debug_assert!(!nl_plus1.is_inf());
+                    let lo_obj = std::cmp::max(prev_dp.total(), nl.total());
+                    let lo_plus1_obj =
+                        std::cmp::max(prev_dp_plus1.total(), nl_plus1.total());
+                    if lo_obj <= lo_plus1_obj {
+                        lo
+                    } else {
+                        lo + 1
+                    }
+                }
+            } else {
+                lo
+            }
+        }
+    };
+
+    // Check if the lower bound is tight at `approximate_opt_width`. If it is,
+    // then `approximate_opt_width` is the true optimum. Otherwise, we will
+    // need to do line search to the left and right until the tightness is
+    // attained.
+
+    // We must have visited `approximate_opt_width`.
+    let prev_dp = memo.get(approximate_opt_width).unwrap();
+    let nl = nls.get(approximate_opt_width).unwrap().as_ref().unwrap();
+    match is_lb_tight(prev_dp, nl) {
+        LbTightness::Inf => panic!(), // This should not happen.
+        LbTightness::Tight(dp) => (dp, approximate_opt_width),
+        LbTightness::NotTight(dp) => {
+            let mut min_value = dp.total();
+            let mut opt_dp = dp;
+            let mut opt_width = approximate_opt_width;
+            // Return true if tightness is reached.
+            let mut line_search = |i: usize| -> bool {
+                let prev_dp = memo.get(i).unwrap();
+                let nl = nls.get_mut(i).unwrap().get_or_insert_with(|| {
+                    nlines_taken_by_column(
+                        col_idx,
+                        transposed_table,
+                        opts.as_width(i),
+                        false,
+                    )
+                });
+                match is_lb_tight(prev_dp, nl) {
+                    // If lower bound is infinity, then it's tight.
+                    LbTightness::Inf => true,
+                    LbTightness::Tight(dp) => {
+                        let value = dp.total();
+                        if value < min_value {
+                            min_value = value;
+                            opt_dp = dp;
+                            opt_width = i;
+                        }
+                        true
+                    }
+                    LbTightness::NotTight(dp) => {
+                        let value = dp.total();
+                        if value < min_value {
+                            min_value = value;
+                            opt_dp = dp;
+                            opt_width = i;
+                        }
+                        false
+                    }
+                }
+            };
+
+            for i in (0..approximate_opt_width).rev() {
+                if line_search(i) {
+                    break;
+                }
+            }
+            for i in approximate_opt_width + 1..=w {
+                if line_search(i) {
+                    break;
+                }
+            }
+            (opt_dp, opt_width)
+        }
+    }
+}
+
 /// Compute the dp candidate `dp(w, n, i)`, which is a
 /// [`NumWrappedLinesInColumn`] of the first `n` (0-indexed) undecided columns
 /// of the table with total disposable width `w` (1-indexed), from which width
@@ -267,7 +476,7 @@ fn calc_dp_candidate(
     w: usize,
     col_idx: usize,
     prev_dp: &NumWrappedLinesInColumn,
-) -> (NumWrappedLinesInColumn, usize) {
+) -> (NumWrappedLinesInColumn, Decision) {
     // If `prev_dp` is already infinity, we don't need to compute `nl`, since
     // the result will be infinity anyway.
     if prev_dp.is_inf() {
@@ -278,6 +487,32 @@ fn calc_dp_candidate(
         nl.max_with(prev_dp);
         (nl, w)
     }
+}
+
+fn dp_inductive_step_brute(
+    transposed_table: &Table<String>,
+    opts: &mut WrapOptionsVarWidths,
+    nrows: usize,
+    w: usize,
+    col_idx: usize,
+    memo: &[NumWrappedLinesInColumn],
+) -> (NumWrappedLinesInColumn, Decision) {
+    assert!(w < memo.len());
+    // Search over [1, w] for the best width to allocate.
+    (1..=w)
+        .map(|i| {
+            let prev_dp = memo.get(w - i).unwrap();
+            calc_dp_candidate(
+                transposed_table,
+                opts.as_width(i),
+                nrows,
+                i,
+                col_idx,
+                prev_dp,
+            )
+        })
+        .min_by_key(|(nl, _)| nl.total())
+        .unwrap()
 }
 
 /// `dp(w, n)` is the optimal [`NumWrappedLinesInColumn`] of the first `n`
@@ -321,24 +556,14 @@ fn dp(
                     base_memo,
                 )
             }
-            Memo::Cache(memo) => {
-                assert!(w < memo.len());
-                // Search over [1, w] for the best width to allocate.
-                (1..=w)
-                    .map(|i| {
-                        let prev_dp = memo.get(w - i).unwrap();
-                        calc_dp_candidate(
-                            transposed_table,
-                            opts.as_width(i),
-                            nrows,
-                            i,
-                            col_idx,
-                            prev_dp,
-                        )
-                    })
-                    .min_by_key(|(nl, _)| nl.total())
-                    .unwrap()
-            }
+            Memo::Cache(memo) => dp_inductive_step_bisect(
+                transposed_table,
+                opts,
+                nrows,
+                w,
+                col_idx,
+                memo,
+            ),
         }
     };
     out_memo.push(dp);
