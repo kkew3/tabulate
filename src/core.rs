@@ -236,12 +236,6 @@ impl Memo {
         Self::Base(nl)
     }
 
-    /// Check if `self` is `Base`.
-    #[inline]
-    fn is_base(&self) -> bool {
-        matches!(self, Self::Base(_))
-    }
-
     /// Returns `true` if `self` is `Cache` and its last item is infinity.
     /// Panics if `self` is not `Cache`, or if the cached memo is empty.
     #[inline]
@@ -275,7 +269,7 @@ fn is_lb_tight(
         return LbTightness::Inf;
     }
     let lb = std::cmp::max(prev_dp.total(), nl.total());
-    let mut dp: NumWrappedLinesInColumn = prev_dp.clone();
+    let mut dp = prev_dp.clone();
     dp.max_with(nl);
     let true_value = dp.total();
     if lb == true_value {
@@ -337,9 +331,9 @@ fn dp_inductive_step_bisect(
     let approximate_opt_width = {
         let prev_dp = memo.get(w - lo).unwrap();
         if prev_dp.is_inf() {
-            // We are approaching 0 from the positive quadrant, so infinity is the
-            // approximate optimum. By documentation, if the approximate optimum is
-            // infinity, then so is the real optimum.
+            // We are approaching 0 from the positive quadrant, so infinity is
+            // the approximate optimum. By documentation, if the approximate
+            // optimum is infinity, then so is the real optimum.
             return (NumWrappedLinesInColumn::inf(nrows), lo);
         }
         // Split to avoid compiler error.
@@ -373,8 +367,8 @@ fn dp_inductive_step_bisect(
                 return (NumWrappedLinesInColumn::inf(nrows), lo);
             }
         } else {
-            // If (lo + 1) exists, we need to check which is the
-            // approximate optimum, `lo` or `(lo + 1)`.
+            // If (lo + 1) exists, we need to check which is the approximate
+            // optimum, `lo` or `(lo + 1)`.
             if lo < w {
                 let prev_dp_plus1 = memo.get(w - (lo + 1)).unwrap();
                 if prev_dp_plus1.is_inf() {
