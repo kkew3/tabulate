@@ -707,6 +707,7 @@ mod complete_user_widths_tests {
 
     use super::{complete_user_widths, OptionsWrapper};
     use crate::io::{Table, TableRenderer};
+    use crate::table_renderers::NullTableRenderer;
 
     use super::{
         ensure_col_within_width, try_wrap_col, NumWrappedLinesInColumn,
@@ -725,23 +726,6 @@ mod complete_user_widths_tests {
     const MAX_WIDTH_DOF: usize = 15;
     /// `nrows` of the table.
     const NROWS: usize = 3;
-
-    #[derive(Debug, Clone)]
-    struct NullTableRenderer;
-
-    impl TableRenderer for NullTableRenderer {
-        fn layout_width(&self, _table_ncols: usize) -> usize {
-            0
-        }
-
-        fn render_table(
-            &self,
-            _wrapped_table: &Table<Vec<String>>,
-            _widths: &[usize],
-        ) -> String {
-            "".into()
-        }
-    }
 
     /// Count number of lines taken by the table, and ensure that all columns
     /// are within `widths`.

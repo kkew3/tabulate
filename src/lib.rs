@@ -1,6 +1,7 @@
 mod core;
 mod io;
 pub mod try_wrap;
+pub mod table_renderers;
 
 #[derive(Debug)]
 pub enum Error {
