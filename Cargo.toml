@@ -21,3 +21,6 @@ opt-level = 3
 
 [profile.test.package.rand_chacha]
 opt-level = 3
+
+[features]
+bench-brute = []

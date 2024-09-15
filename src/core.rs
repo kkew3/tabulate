@@ -459,6 +459,39 @@ fn dp_inductive_step_bisect(
     }
 }
 
+#[cfg(any(test, feature = "bench-brute"))]
+fn dp_inductive_step_brute(
+    transposed_table: &Table<String>,
+    opts: &mut WrapOptionsVarWidths,
+    nrows: usize,
+    w: usize,
+    col_idx: usize,
+    memo: &[NumWrappedLinesInColumn],
+) -> (NumWrappedLinesInColumn, Decision) {
+    assert!(w < memo.len());
+    // Search over [1, w] for the best width to allocate.
+    (1..=w)
+        .map(|i| {
+            let prev_dp = memo.get(w - i).unwrap();
+            // If `prev_dp` is already infinity, we don't need to compute `nl`, since
+            // the result will be infinity anyway.
+            if prev_dp.is_inf() {
+                (NumWrappedLinesInColumn::inf(nrows), i)
+            } else {
+                let mut nl = nlines_taken_by_column(
+                    col_idx,
+                    transposed_table,
+                    opts.as_width(i),
+                    false,
+                );
+                nl.max_with(prev_dp);
+                (nl, i)
+            }
+        })
+        .min_by_key(|(nl, _)| nl.total())
+        .unwrap()
+}
+
 /// `dp(w, n)` is the optimal [`NumWrappedLinesInColumn`] of the first `n`
 /// (0-indexed) undecided columns of the table with total disposable width `w`
 /// (1-indexed). In practice, however, since `dp(_, n)` depends only on `dp(_,
@@ -507,6 +540,7 @@ fn dp(
                     (nl, w)
                 }
             }
+            #[cfg(not(all(test, feature = "bench-brute")))]
             Memo::Cache(memo) => dp_inductive_step_bisect(
                 transposed_table,
                 opts,
@@ -515,6 +549,36 @@ fn dp(
                 col_idx,
                 memo,
             ),
+            #[cfg(feature = "bench-brute")]
+            Memo::Cache(memo) => dp_inductive_step_brute(
+                transposed_table,
+                opts,
+                nrows,
+                w,
+                col_idx,
+                memo,
+            ),
+            #[cfg(test)]
+            Memo::Cache(memo) => {
+                let (dp, decision) = dp_inductive_step_bisect(
+                    transposed_table,
+                    opts,
+                    nrows,
+                    w,
+                    col_idx,
+                    memo,
+                );
+                let (dp_brute, _) = dp_inductive_step_brute(
+                    transposed_table,
+                    opts,
+                    nrows,
+                    w,
+                    col_idx,
+                    memo,
+                );
+                assert_eq!(dp.total(), dp_brute.total());
+                (dp, decision)
+            }
         }
     };
     out_memo.push(dp);
