@@ -1,5 +1,5 @@
 //! Functions for dry-run wrapping text.
-//! 
+//!
 //! Copied from https://github.com/mgeisler/textwrap/pull/547.
 
 use textwrap::core::{break_words, display_width, Fragment, Word};
@@ -109,8 +109,8 @@ fn try_wrap_single_line_slow_path(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use textwrap::{WordSeparator, WordSplitter, WrapAlgorithm};
     use hyphenation::{Language, Load, Standard};
+    use textwrap::{WordSeparator, WordSplitter, WrapAlgorithm};
 
     /// Create a vec of `display_width`s.
     macro_rules! dw_vec {
@@ -220,7 +220,7 @@ mod tests {
             ),
             dw_vec!["Ｈｅｌｌｏ,", "Ｗｏｒｌｄ!"]
         );
-        
+
         assert_eq!(
             try_wrap(
                 "Ｈｅｌｌｏ, Ｗｏｒｌｄ!",

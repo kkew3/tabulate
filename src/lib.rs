@@ -1,7 +1,7 @@
-pub mod core;
+pub mod column_planner;
 pub mod io;
-pub(crate) mod try_wrap;
 pub mod table_renderers;
+pub(crate) mod try_wrap;
 
 #[derive(Debug)]
 pub enum Error {

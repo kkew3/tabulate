@@ -22,7 +22,7 @@ fn generate_transposed_table(ncols: usize, mut seed: u64) -> Table<String> {
 }
 
 fn worker(ncols: usize, transposed_table: &Table<String>) {
-    tabulate::core::complete_user_widths(
+    tabulate::column_planner::complete_user_widths(
         vec![None; ncols],
         Some(AVERAGE_COLUMN_WIDTH * ncols),
         transposed_table,
