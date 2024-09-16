@@ -4,3 +4,6 @@ rt/
 .idea/
 
 /target
+
+.DS_Store
+rsync.sh
