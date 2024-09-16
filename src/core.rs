@@ -540,7 +540,7 @@ fn dp(
                     (nl, w)
                 }
             }
-            #[cfg(not(all(test, feature = "bench-brute")))]
+            #[cfg(not(any(test, feature = "bench-brute")))]
             Memo::Cache(memo) => dp_inductive_step_bisect(
                 transposed_table,
                 opts,
@@ -558,7 +558,7 @@ fn dp(
                 col_idx,
                 memo,
             ),
-            #[cfg(test)]
+            #[cfg(all(test, not(feature = "bench-brute")))]
             Memo::Cache(memo) => {
                 let (dp, decision) = dp_inductive_step_bisect(
                     transposed_table,
