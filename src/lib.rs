@@ -1,6 +1,6 @@
-mod core;
-mod io;
-pub mod try_wrap;
+pub mod core;
+pub mod io;
+pub(crate) mod try_wrap;
 pub mod table_renderers;
 
 #[derive(Debug)]
