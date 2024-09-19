@@ -1,79 +1,7 @@
-use std::borrow::Cow;
-
-use crate::io::{Table, TableRenderer};
+use crate::table::{
+    OptionsWrapper, Table, TableRenderer, WrapOptionsVarWidths,
+};
 use crate::try_wrap;
-
-/// A wrapper over [`textwrap::Options`] that can change its `width` as needed.
-struct WrapOptionsVarWidths<'a> {
-    inner: textwrap::Options<'a>,
-    original_width: usize,
-}
-
-impl<'a> From<textwrap::Options<'a>> for WrapOptionsVarWidths<'a> {
-    fn from(value: textwrap::Options<'a>) -> Self {
-        let width = value.width;
-        Self {
-            inner: value,
-            original_width: width,
-        }
-    }
-}
-
-impl<'a> From<WrapOptionsVarWidths<'a>> for textwrap::Options<'a> {
-    fn from(value: WrapOptionsVarWidths<'a>) -> Self {
-        let mut opts = value.inner;
-        opts.width = value.original_width;
-        opts
-    }
-}
-
-impl<'a> WrapOptionsVarWidths<'a> {
-    /// Return reference to a [`textwrap::Options`] whose `width` attribute is
-    /// set to `width`.
-    fn as_width(&mut self, width: usize) -> &textwrap::Options<'a> {
-        self.inner.width = width;
-        &self.inner
-    }
-}
-
-/// Wrapper of the result of a function and the input [`textwrap::Options`],
-/// used to giving back the options to the caller.
-#[derive(Debug)]
-pub struct OptionsWrapper<'a, T>(pub T, pub textwrap::Options<'a>);
-
-/// Wrap a row of strings. Return the wrapped lines of each cell along the row.
-fn wrap_row<'o, 's>(
-    row: &'s [String],
-    widths: &[usize],
-    opts: textwrap::Options<'o>,
-) -> OptionsWrapper<'o, Vec<Vec<Cow<'s, str>>>> {
-    let mut opts = WrapOptionsVarWidths::from(opts);
-    let result = row
-        .iter()
-        .zip(widths.iter())
-        .map(|(s, w)| textwrap::wrap(s, opts.as_width(*w)))
-        .collect();
-    OptionsWrapper(result, opts.into())
-}
-
-/// Ensure all lines in a wrapped row is within corresponding width in
-/// `widths`. The `row_idx` is needed to prepare the error message.
-fn ensure_row_within_widths(
-    row_idx: usize,
-    wrapped_row: &[Vec<Cow<'_, str>>],
-    widths: &[usize],
-) -> crate::Result<()> {
-    for (col_idx, (cell, w)) in
-        wrapped_row.iter().zip(widths.iter()).enumerate()
-    {
-        if cell.iter().any(|s| textwrap::core::display_width(s) > *w) {
-            return Err(crate::Error::ColumnNotWideEnough(Some((
-                row_idx, col_idx,
-            ))));
-        }
-    }
-    Ok(())
-}
 
 /// Try wrap a column of strings. Return the display widths of the wrapped
 /// lines of each string.
@@ -143,13 +71,6 @@ impl NumWrappedLinesInColumn {
         for (x, y) in self.0.iter_mut().zip(other.0.iter()) {
             *x = std::cmp::max(*x, *y);
         }
-    }
-
-    /// Assign `other` to `self`.
-    #[inline]
-    fn assign(&mut self, mut other: NumWrappedLinesInColumn) {
-        self.0.clear();
-        self.0.append(&mut other.0);
     }
 
     /// Compute the total number of wrapped lines.
@@ -706,7 +627,7 @@ mod complete_user_widths_tests {
     use proptest::prelude::*;
 
     use super::{complete_user_widths, OptionsWrapper};
-    use crate::io::{Table, TableRenderer};
+    use crate::table::{Table, TableRenderer};
     use crate::table_renderers::NullTableRenderer;
 
     use super::{

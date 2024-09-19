@@ -1,4 +1,4 @@
-use crate::io::{Table, TableRenderer};
+use crate::table::{Table, TableRenderer};
 
 /// A placeholder table renderer used in tests and benchmarks.
 #[cfg(any(test, feature = "bench-brute", feature = "bench-bisect"))]

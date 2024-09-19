@@ -1,5 +1,6 @@
 pub mod column_planner;
 pub mod io;
+pub mod table;
 pub mod table_renderers;
 pub(crate) mod try_wrap;
 

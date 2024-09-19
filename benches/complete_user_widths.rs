@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rand_chacha::rand_core::SeedableRng;
-use tabulate::io::Table;
+use tabulate::table::Table;
 use tabulate::table_renderers::NullTableRenderer;
 use textwrap::{WordSeparator, WordSplitter};
 
