@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use crate::table::{Table, TableRenderer};
 
 /// A placeholder table renderer used in tests and benchmarks.
@@ -13,7 +14,7 @@ impl TableRenderer for NullTableRenderer {
 
     fn render_table(
         &self,
-        _wrapped_table: &Table<Vec<String>>,
+        _filled_table: &Table<Vec<Cow<'_, str>>>,
         _widths: &[usize],
     ) -> String {
         "".into()

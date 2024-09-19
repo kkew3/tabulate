@@ -31,6 +31,12 @@ impl<T> Table<T> {
         self.nrows
     }
 
+    /// Number of cells.
+    #[inline]
+    pub fn ncells(&self) -> usize {
+        self.cells.len()
+    }
+
     /// Number of columns.
     #[inline]
     pub fn ncols(&self) -> usize {
@@ -144,10 +150,10 @@ pub trait TableRenderer {
     /// than the table content, given the `ncols` of a table.
     fn layout_width(&self, table_ncols: usize) -> usize;
 
-    /// Render a wrapped table into string given the widths of each column.
+    /// Render a filled table into string given the widths of each column.
     fn render_table(
         &self,
-        wrapped_table: &Table<Vec<String>>,
+        filled_table: &Table<Vec<Cow<'_, str>>>,
         widths: &[usize],
     ) -> String;
 }
@@ -191,18 +197,61 @@ impl<'a> WrapOptionsVarWidths<'a> {
 pub struct OptionsWrapper<'a, T>(pub T, pub textwrap::Options<'a>);
 
 /// Wrap a row of strings. Return the wrapped lines of each cell along the row.
-fn wrap_row<'o, 's>(
+fn wrap_row<'s>(
     row: &'s [String],
     widths: &[usize],
-    opts: textwrap::Options<'o>,
-) -> OptionsWrapper<'o, Vec<Vec<Cow<'s, str>>>> {
-    let mut opts = WrapOptionsVarWidths::from(opts);
-    let result = row
-        .iter()
+    opts: &mut WrapOptionsVarWidths<'_>,
+) -> Vec<Vec<Cow<'s, str>>> {
+    row.iter()
         .zip(widths.iter())
         .map(|(s, w)| textwrap::wrap(s, opts.as_width(*w)))
-        .collect();
-    OptionsWrapper(result, opts.into())
+        .collect()
+}
+
+/// Wrap every line of the table. Return the wrapped table.
+fn wrap_table<'s>(
+    table: &'s Table<String>,
+    widths: &[usize],
+    opts: &mut WrapOptionsVarWidths<'_>,
+) -> Table<Vec<Cow<'s, str>>> {
+    let nrows = table.nrows();
+    let mut wrapped_cells = Vec::with_capacity(table.ncells());
+    for i in 0..nrows {
+        wrapped_cells.extend(wrap_row(table.row(i).unwrap(), widths, opts));
+    }
+    Table::from_vec(wrapped_cells, nrows).unwrap()
+}
+
+/// Fill a wrapped cell. `max_nlines` is the max number of lines of cells of
+/// the row where current cell lies in.
+fn fill_cell(
+    wrapped_cell: &mut Vec<Cow<'_, str>>,
+    width: usize,
+    max_nlines: usize,
+) {
+    for line in wrapped_cell.iter_mut() {
+        let padded: String = std::iter::repeat(" ")
+            .take(width.saturating_sub(textwrap::core::display_width(line)))
+            .collect();
+        line.to_mut().push_str(&padded);
+    }
+    let nlines = wrapped_cell.len();
+    for _ in 0..max_nlines.saturating_sub(nlines) {
+        let padded: String = std::iter::repeat(" ").take(width).collect();
+        wrapped_cell.push(Cow::from(padded));
+    }
+}
+
+/// Fill the wrapped table, assuming the table is non-empty.
+fn fill_table(table: &mut Table<Vec<Cow<'_, str>>>, widths: &[usize]) {
+    let nrows = table.nrows();
+    for i in 0..nrows {
+        let wrapped_row = table.row_mut(i).unwrap();
+        let max_nlines = wrapped_row.iter().map(|r| r.len()).max().unwrap();
+        for (wrapped_cell, w) in wrapped_row.iter_mut().zip(widths.iter()) {
+            fill_cell(wrapped_cell, *w, max_nlines);
+        }
+    }
 }
 
 /// Ensure all lines in a wrapped row is within corresponding width in
@@ -275,5 +324,23 @@ mod tests {
             ]
         );
         assert_eq!(table.nrows, 3);
+    }
+
+    #[test]
+    fn test_fill_cell() {
+        let mut cell = vec![Cow::from("abcde")];
+        fill_cell(&mut cell, 10, 2);
+        assert_eq!(
+            cell,
+            vec![Cow::from("abcde     "), Cow::from("          ")]
+        );
+
+        let mut cell = vec![Cow::from("12345678")];
+        fill_cell(&mut cell, 5, 1);
+        assert_eq!(cell, vec![Cow::from("12345678")]);
+
+        let mut cell = vec![Cow::from("12345678")];
+        fill_cell(&mut cell, 5, 2);
+        assert_eq!(cell, vec![Cow::from("12345678"), Cow::from("     ")]);
     }
 }
