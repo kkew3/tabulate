@@ -193,7 +193,7 @@ mod tests {
         table.transpose();
         let widths = complete_user_widths(
             vec![None; ncols],
-            Some(35), // The width used in samples.
+            Some(28 + renderer.layout_width(ncols)), // As used in samples.
             table,
             renderer,
             &mut wrap_opts,
