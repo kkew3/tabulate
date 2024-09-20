@@ -28,17 +28,24 @@ impl TableRenderers {
         match name {
             "grid_no_header" => Ok(Box::new(GridNoHeader)),
             "grid" => Ok(Box::new(Grid)),
+            "plain" => Ok(Box::new(Plain)),
             _ => Err(crate::Error::InvalidTableLayout(name.into())),
         }
     }
 }
 
 /// Draw a table `row` into `buf`. A line consists of
-/// 
+///
 /// ```plaintext
 /// <LEFT_PAD><TEXT1><COL_SEP><TEXT2><COL_SEP><TEXT3><RIGHT_PAD>\n
 /// ```
-fn draw_row(buf: &mut String, row: &[Vec<Cow<'_, str>>], left_pad: &str, right_pad: &str, col_sep: &str) {
+fn draw_row(
+    buf: &mut String,
+    row: &[Vec<Cow<'_, str>>],
+    left_pad: &str,
+    right_pad: &str,
+    col_sep: &str,
+) {
     let nlines = row.first().unwrap().len();
     let ncols = row.len();
     for i in 0..nlines {
@@ -164,9 +171,45 @@ impl TableRenderer for Grid {
     }
 }
 
+/// Sample:
+///
+/// ```plaintext
+/// Duis facilisis.  Quisque ex   
+///                  nibh, auctor
+///                  eu sodales.  
+/// Maecenas                      
+/// blandit elit.                 
+/// Sed lobortis,    Mauris enim.
+/// nibh vitae.                   
+/// ```
+pub struct Plain;
+
+impl TableRenderer for Plain {
+    fn layout_width(&self, table_ncols: usize) -> usize {
+        2 * (table_ncols - 1)
+    }
+
+    fn render_table(
+        &self,
+        filled_table: &Table<Vec<Cow<'_, str>>>,
+        _widths: &[usize],
+    ) -> String {
+        let mut buf = String::new();
+        let nrows = filled_table.nrows();
+        for i in 0..nrows {
+            let row = filled_table.row(i).unwrap();
+            draw_row(&mut buf, row, "", "", "  ");
+            if i < nrows - 1 {
+                buf.push('\n');
+            }
+        }
+        buf
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Grid, GridNoHeader};
+    use super::{Grid, GridNoHeader, Plain};
     use crate::column_planner::complete_user_widths;
     use crate::io::ReadOptions;
     use crate::table::{
@@ -246,6 +289,25 @@ mod tests {
 | Sed lobortis,   | Mauris enim.  |
 | nibh vitae.     |               |
 +-----------------+---------------+"#
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_plain() -> crate::Result<()> {
+        let renderer = Plain;
+        let mut table = read_lipsum_text()?;
+        let (widths, wrapped_table) = fill_lipsum_table(&mut table, &renderer)?;
+        let s = renderer.render_table(&wrapped_table, &widths);
+        assert_eq!(
+            s,
+            r#"Duis facilisis.  Quisque ex   
+                 nibh, auctor 
+                 eu sodales.  
+Maecenas                      
+blandit elit.                 
+Sed lobortis,    Mauris enim. 
+nibh vitae.                   "#
         );
         Ok(())
     }

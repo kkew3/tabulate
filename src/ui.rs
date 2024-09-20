@@ -73,6 +73,7 @@ impl UserWidths {
 ///
 /// - grid_no_header
 /// - grid
+/// - plain
 ///
 /// STRICT MODE
 ///
