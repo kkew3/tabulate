@@ -75,6 +75,7 @@ impl UserWidths {
 /// - grid
 /// - plain
 /// - simple
+/// - github
 ///
 /// STRICT MODE
 ///

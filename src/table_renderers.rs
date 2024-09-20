@@ -29,6 +29,7 @@ impl TableRenderers {
             "grid_no_header" => Ok(Box::new(GridNoHeader)),
             "grid" => Ok(Box::new(Grid)),
             "plain" => Ok(Box::new(Plain)),
+            "github" => Ok(Box::new(Github)),
             _ => Err(crate::Error::InvalidTableLayout(name.into())),
         }
     }
@@ -255,9 +256,55 @@ impl TableRenderer for Simple {
     }
 }
 
+/// Sample:
+///
+/// ```plaintext
+/// | Duis facilisis. | Quisque ex    |
+/// |                 | nibh, auctor  |
+/// |                 | eu sodales.   |
+/// |-----------------|---------------|
+/// | Maecenas        |               |
+/// | blandit elit.   |               |
+/// | Sed lobortis,   | Mauris enim.  |
+/// | nibh vitae.     |               |
+/// ```
+pub struct Github;
+
+impl TableRenderer for Github {
+    fn layout_width(&self, table_ncols: usize) -> usize {
+        3 * (table_ncols - 1) + 2 + 2
+    }
+
+    fn render_table(
+        &self,
+        filled_table: &Table<Vec<Cow<'_, str>>>,
+        widths: &[usize],
+    ) -> String {
+        let mut hrule = String::new();
+        hrule.push('|');
+        for w in widths.iter() {
+            let dashes = "-".repeat(w + 2);
+            hrule.push_str(&dashes);
+            hrule.push('|');
+        }
+
+        let mut buf = String::new();
+        draw_row(&mut buf, filled_table.row(0).unwrap(), "| ", " |", " | ");
+        buf.push('\n');
+        buf.push_str(&hrule);
+        let nrows = filled_table.nrows();
+        for i in 1..nrows {
+            buf.push('\n');
+            let row = filled_table.row(i).unwrap();
+            draw_row(&mut buf, row, "| ", " |", " | ");
+        }
+        buf
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Grid, GridNoHeader, Plain, Simple};
+    use super::{Github, Grid, GridNoHeader, Plain, Simple};
     use crate::column_planner::complete_user_widths;
     use crate::io::ReadOptions;
     use crate::table::{
@@ -376,6 +423,26 @@ Maecenas
 blandit elit.                 
 Sed lobortis,    Mauris enim. 
 nibh vitae.                   "#
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_github() -> crate::Result<()> {
+        let renderer = Github;
+        let mut table = read_lipsum_text()?;
+        let (widths, wrapped_table) = fill_lipsum_table(&mut table, &renderer)?;
+        let s = renderer.render_table(&wrapped_table, &widths);
+        assert_eq!(
+            s,
+            r#"| Duis facilisis. | Quisque ex    |
+|                 | nibh, auctor  |
+|                 | eu sodales.   |
+|-----------------|---------------|
+| Maecenas        |               |
+| blandit elit.   |               |
+| Sed lobortis,   | Mauris enim.  |
+| nibh vitae.     |               |"#
         );
         Ok(())
     }
