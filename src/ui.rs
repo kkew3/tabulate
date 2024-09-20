@@ -33,7 +33,11 @@ impl UserWidths {
         let len = user_widths.len();
         if len < ncols {
             let n_rest = ncols - len;
-            eprintln!("W: Padding USER_WIDTHS with `-`");
+            // If `len` is zero, it's most likely that user skips the option
+            // instead of misspelling it.
+            if len > 0 {
+                eprintln!("W: Padding USER_WIDTHS with `-`");
+            }
             user_widths.extend(std::iter::repeat(None).take(n_rest));
         } else if len > ncols {
             eprintln!("W: Truncating USER_WIDTHS to ncols={}", ncols);
