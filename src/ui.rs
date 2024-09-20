@@ -71,7 +71,7 @@ impl UserWidths {
 ///
 /// Currently supported table layouts are:
 ///
-///     - simple_grid
+///     - grid_no_header
 ///
 /// STRICT MODE
 ///
@@ -85,7 +85,7 @@ pub struct Cli {
     /// The table total width, default to terminal width.
     #[arg(short = 'T', long = "table-width", name = "TABLE_WIDTH")]
     user_total_width: Option<usize>,
-    /// The table layout, default to "simple_grid".
+    /// The table layout, default to "grid_no_header".
     #[arg(short = 'L', long = "layout")]
     table_layout: Option<String>,
     /// Specify to enable strict mode.
@@ -116,7 +116,7 @@ impl Cli {
                 eprintln!("E: {}", msg);
                 ExitCode::from(1)
             })?;
-        let table_layout = cli.table_layout.unwrap_or("simple_grid".into());
+        let table_layout = cli.table_layout.unwrap_or("grid_no_header".into());
         let mut read_opts = ReadOptions::default();
         if let Some(field_delimiter) = cli.field_delimiter {
             read_opts.sep = field_delimiter;

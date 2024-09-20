@@ -26,7 +26,7 @@ pub struct TableRenderers;
 impl TableRenderers {
     pub fn new(name: &str) -> crate::Result<Box<dyn TableRenderer>> {
         match name {
-            "simple_grid" => Ok(Box::new(SimpleGrid)),
+            "grid_no_header" => Ok(Box::new(GridNoHeader)),
             _ => Err(crate::Error::InvalidTableLayout(name.into())),
         }
     }
@@ -42,9 +42,9 @@ impl TableRenderers {
 /// | a cd | bac b |
 /// +------+-------+
 /// ```
-pub struct SimpleGrid;
+pub struct GridNoHeader;
 
-impl TableRenderer for SimpleGrid {
+impl TableRenderer for GridNoHeader {
     fn layout_width(&self, table_ncols: usize) -> usize {
         3 * (table_ncols - 1) + 2 + 2
     }
