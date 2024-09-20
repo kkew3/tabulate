@@ -85,7 +85,7 @@ Optional Requirement
 Example
 -------
 
-Type `tabulate -W14,56 example.txt` to convert [example.txt](example.txt) to [example-formatted.txt](example-formatted.txt).
+Type `tabulate -W14,56 example.txt` to convert [example.txt](examples/example.txt) to [example-formatted.txt](examples/example-formatted.txt).
 
 > example.txt
 
@@ -117,7 +117,7 @@ FILE	table content from which to read; if FILE is not specified, the table conte
 +----------------+----------------------------------------------------------+
 ```
 
-Type `tabulate -W14,- -T62 -Lhline example_cjk.txt` to convert [example_cjk.txt](example_cjk.txt) to [example_cjk-formatted.txt](example_cjk-formatted.txt).
+Type `tabulate -W14,- -T62 -Lhline example_cjk.txt` to convert [example_cjk.txt](examples/example_cjk.txt) to [example_cjk-formatted.txt](examples/example_cjk-formatted.txt).
 
 > example_cjk.txt
 
