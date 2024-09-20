@@ -158,6 +158,20 @@ pub trait TableRenderer {
     ) -> String;
 }
 
+impl TableRenderer for Box<dyn TableRenderer> {
+    fn layout_width(&self, table_ncols: usize) -> usize {
+        self.as_ref().layout_width(table_ncols)
+    }
+
+    fn render_table(
+        &self,
+        filled_table: &Table<Vec<Cow<'_, str>>>,
+        widths: &[usize],
+    ) -> String {
+        self.as_ref().render_table(filled_table, widths)
+    }
+}
+
 /// A wrapper over [`textwrap::Options`] that can change its `width` as needed.
 pub struct WrapOptionsVarWidths<'a> {
     inner: textwrap::Options<'a>,
