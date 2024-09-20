@@ -36,7 +36,7 @@ impl UserWidths {
             // If `len` is zero, it's most likely that user skips the option
             // instead of misspelling it.
             if len > 0 {
-                eprintln!("W: Padding USER_WIDTHS with `-`");
+                eprintln!("W: Padding USER_WIDTHS with `*`");
             }
             user_widths.extend(std::iter::repeat(None).take(n_rest));
         } else if len > ncols {
