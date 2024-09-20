@@ -164,3 +164,90 @@ impl TableRenderer for Grid {
         buf
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Grid, GridNoHeader};
+    use crate::column_planner::complete_user_widths;
+    use crate::io::ReadOptions;
+    use crate::table::{
+        fill_table, wrap_table, Table, TableRenderer, WrapOptionsVarWidths,
+    };
+    use std::borrow::Cow;
+    use std::fs::File;
+    use std::io::BufReader;
+
+    fn read_lipsum_text() -> crate::Result<Table<String>> {
+        let file = File::open("examples/lipsum.txt")?;
+        let file = BufReader::new(file);
+        let read_opts = ReadOptions::default();
+        let table = Table::from_bufread(file, &read_opts)?;
+        Ok(table)
+    }
+
+    fn fill_lipsum_table<'a>(
+        table: &'a mut Table<String>,
+        renderer: &dyn TableRenderer,
+    ) -> crate::Result<(Vec<usize>, Table<Vec<Cow<'a, str>>>)> {
+        let ncols = table.ncols();
+        let mut wrap_opts = WrapOptionsVarWidths::default();
+        table.transpose();
+        let widths = complete_user_widths(
+            vec![None; ncols],
+            Some(35), // The width used in samples.
+            table,
+            renderer,
+            &mut wrap_opts,
+        )?;
+        table.transpose();
+        let mut wrapped_table = wrap_table(table, &widths, &mut wrap_opts);
+        fill_table(&mut wrapped_table, &widths);
+        Ok((widths, wrapped_table))
+    }
+
+    #[test]
+    fn test_grid_no_header() -> crate::Result<()> {
+        let renderer = GridNoHeader;
+        let mut table = read_lipsum_text()?;
+        let (widths, wrapped_table) = fill_lipsum_table(&mut table, &renderer)?;
+        let s = renderer.render_table(&wrapped_table, &widths);
+        assert_eq!(
+            s,
+            r#"+---------------+-----------------+
+| Duis          | Quisque ex      |
+| facilisis.    | nibh, auctor eu |
+|               | sodales.        |
++---------------+-----------------+
+| Maecenas      | Aliquam porta   |
+| blandit elit. | ipsum.          |
++---------------+-----------------+
+| Sed lobortis, | Mauris enim.    |
+| nibh vitae.   |                 |
++---------------+-----------------+"#
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_grid() -> crate::Result<()> {
+        let renderer = Grid;
+        let mut table = read_lipsum_text()?;
+        let (widths, wrapped_table) = fill_lipsum_table(&mut table, &renderer)?;
+        let s = renderer.render_table(&wrapped_table, &widths);
+        assert_eq!(
+            s,
+            r#"+---------------+-----------------+
+| Duis          | Quisque ex      |
+| facilisis.    | nibh, auctor eu |
+|               | sodales.        |
++===============+=================+
+| Maecenas      | Aliquam porta   |
+| blandit elit. | ipsum.          |
++---------------+-----------------+
+| Sed lobortis, | Mauris enim.    |
+| nibh vitae.   |                 |
++---------------+-----------------+"#
+        );
+        Ok(())
+    }
+}
