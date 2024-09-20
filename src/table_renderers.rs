@@ -33,6 +33,30 @@ impl TableRenderers {
     }
 }
 
+/// Draw a table `row` into `buf`. A line consists of
+/// 
+/// ```plaintext
+/// <LEFT_PAD><TEXT1><COL_SEP><TEXT2><COL_SEP><TEXT3><RIGHT_PAD>\n
+/// ```
+fn draw_row(buf: &mut String, row: &[Vec<Cow<'_, str>>], left_pad: &str, right_pad: &str, col_sep: &str) {
+    let nlines = row.first().unwrap().len();
+    let ncols = row.len();
+    for i in 0..nlines {
+        buf.push_str(left_pad);
+        for (j, cell) in row.iter().enumerate() {
+            let line = cell.get(i).unwrap();
+            buf.push_str(line);
+            if j < ncols - 1 {
+                buf.push_str(col_sep);
+            }
+        }
+        buf.push_str(right_pad);
+        if i < nlines - 1 {
+            buf.push('\n');
+        }
+    }
+}
+
 /// Sample:
 ///
 /// ```plaintext
@@ -68,26 +92,13 @@ impl TableRenderer for GridNoHeader {
             hrule.push('+');
         }
 
-        let draw_row = |buf: &mut String, row: &[Vec<Cow<'_, str>>]| {
-            let nlines = row.first().unwrap().len();
-            for i in 0..nlines {
-                buf.push('|');
-                for cell in row.iter() {
-                    let line = cell.get(i).unwrap();
-                    buf.push(' ');
-                    buf.push_str(line);
-                    buf.push_str(" |");
-                }
-                buf.push('\n');
-            }
-        };
-
         let mut buf = String::new();
         buf.push_str(&hrule);
         let nrows = filled_table.nrows();
         for i in 0..nrows {
             buf.push('\n');
-            draw_row(&mut buf, filled_table.row(i).unwrap());
+            draw_row(&mut buf, filled_table.row(i).unwrap(), "| ", " |", " | ");
+            buf.push('\n');
             buf.push_str(&hrule);
         }
         buf
@@ -136,29 +147,17 @@ impl TableRenderer for Grid {
             hrule2.push('+');
         }
 
-        let draw_row = |buf: &mut String, row: &[Vec<Cow<'_, str>>]| {
-            let nlines = row.first().unwrap().len();
-            for i in 0..nlines {
-                buf.push('|');
-                for cell in row.iter() {
-                    let line = cell.get(i).unwrap();
-                    buf.push(' ');
-                    buf.push_str(line);
-                    buf.push_str(" |");
-                }
-                buf.push('\n');
-            }
-        };
-
         let mut buf = String::new();
         buf.push_str(&hrule);
         buf.push('\n');
-        draw_row(&mut buf, filled_table.row(0).unwrap());
+        draw_row(&mut buf, filled_table.row(0).unwrap(), "| ", " |", " | ");
+        buf.push('\n');
         buf.push_str(&hrule2);
         let nrows = filled_table.nrows();
         for i in 1..nrows {
             buf.push('\n');
-            draw_row(&mut buf, filled_table.row(i).unwrap());
+            draw_row(&mut buf, filled_table.row(i).unwrap(), "| ", " |", " | ");
+            buf.push('\n');
             buf.push_str(&hrule);
         }
         buf
