@@ -57,7 +57,7 @@ impl TableRenderer for SimpleGrid {
         let mut hrule = String::new();
         hrule.push('+');
         for w in widths.iter() {
-            let dashes: String = std::iter::repeat("-").take(w + 2).collect();
+            let dashes = "-".repeat(w + 2);
             hrule.push_str(&dashes);
             hrule.push('+');
         }

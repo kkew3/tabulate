@@ -238,14 +238,13 @@ fn fill_cell(
     max_nlines: usize,
 ) {
     for line in wrapped_cell.iter_mut() {
-        let padded: String = std::iter::repeat(" ")
-            .take(width.saturating_sub(textwrap::core::display_width(line)))
-            .collect();
+        let padded = " "
+            .repeat(width.saturating_sub(textwrap::core::display_width(line)));
         line.to_mut().push_str(&padded);
     }
     let nlines = wrapped_cell.len();
     for _ in 0..max_nlines.saturating_sub(nlines) {
-        let padded: String = std::iter::repeat(" ").take(width).collect();
+        let padded = " ".repeat(width);
         wrapped_cell.push(Cow::from(padded));
     }
 }
