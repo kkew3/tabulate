@@ -191,11 +191,6 @@ impl<'a> WrapOptionsVarWidths<'a> {
     }
 }
 
-/// Wrapper of the result of a function and the input [`textwrap::Options`],
-/// used to giving back the options to the caller.
-#[derive(Debug)]
-pub struct OptionsWrapper<'a, T>(pub T, pub textwrap::Options<'a>);
-
 /// Wrap a row of strings. Return the wrapped lines of each cell along the row.
 fn wrap_row<'s>(
     row: &'s [String],

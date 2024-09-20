@@ -1,6 +1,4 @@
-use crate::table::{
-    OptionsWrapper, Table, TableRenderer, WrapOptionsVarWidths,
-};
+use crate::table::{Table, TableRenderer, WrapOptionsVarWidths};
 use crate::try_wrap;
 
 /// Try wrap a column of strings. Return the display widths of the wrapped
@@ -508,13 +506,13 @@ fn dp(
 
 /// Automatically decide unfilled user-provided widths `user_widths` using
 /// dynamic programming.
-pub fn complete_user_widths<'o>(
+pub fn complete_user_widths(
     mut user_widths: Vec<Option<usize>>,
     user_total_width: Option<usize>,
     transposed_table: &Table<String>,
     table_renderer: &dyn TableRenderer,
-    opts: textwrap::Options<'o>,
-) -> crate::Result<OptionsWrapper<'o, Vec<usize>>> {
+    opts: &mut WrapOptionsVarWidths<'_>,
+) -> crate::Result<Vec<usize>> {
     // The nrows of a transposed table is ncols.
     let ncols = transposed_table.nrows();
     // The ncols of a transposed table is nrows.
@@ -535,7 +533,7 @@ pub fn complete_user_widths<'o>(
     if undecided_cols.is_empty() {
         // All user widths are filled, so user total width will be ignored.
         let widths: Vec<_> = user_widths.into_iter().flatten().collect();
-        return Ok(OptionsWrapper(widths, opts));
+        return Ok(widths);
     }
     let undecided_ncols = undecided_cols.len();
     let user_total_width =
@@ -552,17 +550,12 @@ pub fn complete_user_widths<'o>(
     // Total optimizable width.
     let sum_widths = user_total_width - sum_decided_width - table_layout_width;
 
-    let mut opts = WrapOptionsVarWidths::from(opts);
     // memo[w + n * (sum_widths + 1)] == dp(w, n).
     // However, we actually only need 2*(sum_widths+1) space for memo, since
     // dp(_, n) depends only on dp(_, n-1). Therefore, memo[w] == dp(w, n-1)
     // for every n.
-    let mut memo = Memo::from_user_widths(
-        nrows,
-        &user_widths,
-        transposed_table,
-        &mut opts,
-    );
+    let mut memo =
+        Memo::from_user_widths(nrows, &user_widths, transposed_table, opts);
     // The width to allocate at dp(w, n). This vec will be filled column-wise:
     // (i) `dp(w, 0)`s are appended, (ii) `dp(w, 1)`s are appended, (iii) etc.
     let mut decisions: Vec<Decision> =
@@ -571,7 +564,7 @@ pub fn complete_user_widths<'o>(
     for w in 0..=sum_widths {
         dp(
             transposed_table,
-            &mut opts,
+            opts,
             nrows,
             w,
             *undecided_cols.first().unwrap(),
@@ -586,7 +579,7 @@ pub fn complete_user_widths<'o>(
         for w in 0..=sum_widths {
             dp(
                 transposed_table,
-                &mut opts,
+                opts,
                 nrows,
                 w,
                 *col_idx,
@@ -618,7 +611,7 @@ pub fn complete_user_widths<'o>(
         }
     }
     let completed_user_widths = user_widths.into_iter().flatten().collect();
-    Ok(OptionsWrapper(completed_user_widths, opts.into()))
+    Ok(completed_user_widths)
 }
 
 #[cfg(test)]
@@ -626,7 +619,7 @@ mod complete_user_widths_tests {
     use const_format::concatcp;
     use proptest::prelude::*;
 
-    use super::{complete_user_widths, OptionsWrapper};
+    use super::complete_user_widths;
     use crate::table::{Table, TableRenderer};
     use crate::table_renderers::NullTableRenderer;
 
@@ -650,12 +643,11 @@ mod complete_user_widths_tests {
 
     /// Count number of lines taken by the table, and ensure that all columns
     /// are within `widths`.
-    fn count_nlines_total<'o>(
+    fn count_nlines_total(
         transposed_table: &Table<String>,
-        opts: textwrap::Options<'o>,
+        opts: &mut WrapOptionsVarWidths<'_>,
         widths: &[usize],
-    ) -> Result<OptionsWrapper<'o, usize>, ()> {
-        let mut opts = WrapOptionsVarWidths::from(opts);
+    ) -> Result<usize, ()> {
         let ncols = transposed_table.nrows();
         assert_eq!(ncols, widths.len());
         let mut nl_total =
@@ -670,7 +662,7 @@ mod complete_user_widths_tests {
             );
             nl_total.max_with(&nl);
         }
-        Ok(OptionsWrapper(nl_total.total(), opts.into()))
+        Ok(nl_total.total())
     }
 
     /// Generate wrapping cases. When `infeasibility` is zero, the problems are
@@ -796,7 +788,7 @@ mod complete_user_widths_tests {
         total_width: usize,
         transposed_table: &Table<String>,
         table_renderer: &dyn TableRenderer,
-        opts: textwrap::Options<'_>,
+        opts: &mut WrapOptionsVarWidths<'_>,
     ) -> Result<usize, ()> {
         let any_none = user_widths.iter().any(Option::is_none);
         match complete_user_widths(
@@ -808,12 +800,11 @@ mod complete_user_widths_tests {
         ) {
             Err(crate::Error::ColumnNotWideEnough(_)) => Err(()),
             Err(_) => panic!("Wrong error is returned"),
-            Ok(OptionsWrapper(widths_opt, opts)) => {
+            Ok(widths_opt) => {
                 if any_none {
                     assert_eq!(widths_opt.iter().sum::<usize>(), total_width);
                 }
                 count_nlines_total(transposed_table, opts, &widths_opt)
-                    .map(|OptionsWrapper(nl, _)| nl)
             }
         }
     }
@@ -833,31 +824,25 @@ mod complete_user_widths_tests {
         transposed_table: Table<String>,
     ) {
         let renderer = NullTableRenderer;
-        let opts = new_wrapper_options();
+        let mut opts = WrapOptionsVarWidths::from(new_wrapper_options());
         // Property 3.
         match count_nlines_total_for_user_widths(
             user_widths,
             total_width,
             &transposed_table,
             &renderer,
-            opts,
+            &mut opts,
         ) {
             // Property 1.
             Err(()) => {
-                count_nlines_total(
-                    &transposed_table,
-                    new_wrapper_options(),
-                    &widths,
-                )
-                .unwrap_err();
+                count_nlines_total(&transposed_table, &mut opts, &widths)
+                    .unwrap_err();
             }
             // Property 2.
             Ok(nl_opt) => {
-                if let Ok(OptionsWrapper(nl, _)) = count_nlines_total(
-                    &transposed_table,
-                    new_wrapper_options(),
-                    &widths,
-                ) {
+                if let Ok(nl) =
+                    count_nlines_total(&transposed_table, &mut opts, &widths)
+                {
                     assert!(nl_opt <= nl);
                 }
             }

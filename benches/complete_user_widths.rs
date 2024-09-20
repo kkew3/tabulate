@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rand_chacha::rand_core::SeedableRng;
-use tabulate::table::Table;
+use tabulate::table::{Table, WrapOptionsVarWidths};
 use tabulate::table_renderers::NullTableRenderer;
 use textwrap::{WordSeparator, WordSplitter};
 
@@ -22,15 +22,18 @@ fn generate_transposed_table(ncols: usize, mut seed: u64) -> Table<String> {
 }
 
 fn worker(ncols: usize, transposed_table: &Table<String>) {
+    let mut wrap_opts = WrapOptionsVarWidths::from(
+        textwrap::Options::new(80)
+            .word_splitter(WordSplitter::HyphenSplitter)
+            .word_separator(WordSeparator::AsciiSpace)
+            .break_words(false),
+    );
     tabulate::column_planner::complete_user_widths(
         vec![None; ncols],
         Some(AVERAGE_COLUMN_WIDTH * ncols),
         transposed_table,
         &NullTableRenderer,
-        textwrap::Options::new(80)
-            .word_splitter(WordSplitter::HyphenSplitter)
-            .word_separator(WordSeparator::AsciiSpace)
-            .break_words(false),
+        &mut wrap_opts,
     )
     .unwrap();
 }
