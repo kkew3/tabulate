@@ -76,10 +76,10 @@ impl UserWidths {
 #[derive(Parser, Debug)]
 pub struct Cli {
     /// The column widths.
-    #[arg(short = 'W', long = "widths")]
+    #[arg(short = 'W', long = "widths", name = "WIDTHS")]
     user_widths: Option<String>,
     /// The table total width, default to terminal width.
-    #[arg(short = 'T', long = "table-width")]
+    #[arg(short = 'T', long = "table-width", name = "TABLE_WIDTH")]
     user_total_width: Option<usize>,
     /// The table layout, default to "simple_grid".
     #[arg(short = 'L', long = "layout")]
@@ -88,7 +88,7 @@ pub struct Cli {
     #[arg(short = 'S', long, default_value_t = false)]
     strict: bool,
     /// The field delimiter in the input data, default to <TAB>.
-    #[arg(short = 'd', long = "delimiter")]
+    #[arg(short = 'd', long = "delimiter", name = "DELIMITER")]
     field_delimiter: Option<String>,
     /// The input stream, default to stdin.
     filename: Option<String>,
