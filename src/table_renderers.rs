@@ -36,17 +36,17 @@ impl TableRenderers {
 /// Sample:
 ///
 /// ```plaintext
-/// +---------------+-----------------+
-/// | Duis          | Quisque ex      |
-/// | facilisis.    | nibh, auctor eu |
-/// |               | sodales.        |
-/// +---------------+-----------------+
-/// | Maecenas      | Aliquam porta   |
-/// | blandit elit. | ipsum.          |
-/// +---------------+-----------------+
-/// | Sed lobortis, | Mauris enim.    |
-/// | nibh vitae.   |                 |
-/// +---------------+-----------------+
+/// +-----------------+---------------+
+/// | Duis facilisis. | Quisque ex    |
+/// |                 | nibh, auctor  |
+/// |                 | eu sodales.   |
+/// +-----------------+---------------+
+/// | Maecenas        |               |
+/// | blandit elit.   |               |
+/// +-----------------+---------------+
+/// | Sed lobortis,   | Mauris enim.  |
+/// | nibh vitae.     |               |
+/// +-----------------+---------------+
 /// ```
 pub struct GridNoHeader;
 
@@ -97,17 +97,17 @@ impl TableRenderer for GridNoHeader {
 /// Sample:
 ///
 /// ```plaintext
-/// +---------------+-----------------+
-/// | Duis          | Quisque ex      |
-/// | facilisis.    | nibh, auctor eu |
-/// |               | sodales.        |
-/// +===============+=================+
-/// | Maecenas      | Aliquam porta   |
-/// | blandit elit. | ipsum.          |
-/// +---------------+-----------------+
-/// | Sed lobortis, | Mauris enim.    |
-/// | nibh vitae.   |                 |
-/// +---------------+-----------------+
+/// +-----------------+---------------+
+/// | Duis facilisis. | Quisque ex    |
+/// |                 | nibh, auctor  |
+/// |                 | eu sodales.   |
+/// +=================+===============+
+/// | Maecenas        |               |
+/// | blandit elit.   |               |
+/// +-----------------+---------------+
+/// | Sed lobortis,   | Mauris enim.  |
+/// | nibh vitae.     |               |
+/// +-----------------+---------------+
 /// ```
 pub struct Grid;
 
@@ -213,17 +213,17 @@ mod tests {
         let s = renderer.render_table(&wrapped_table, &widths);
         assert_eq!(
             s,
-            r#"+---------------+-----------------+
-| Duis          | Quisque ex      |
-| facilisis.    | nibh, auctor eu |
-|               | sodales.        |
-+---------------+-----------------+
-| Maecenas      | Aliquam porta   |
-| blandit elit. | ipsum.          |
-+---------------+-----------------+
-| Sed lobortis, | Mauris enim.    |
-| nibh vitae.   |                 |
-+---------------+-----------------+"#
+            r#"+-----------------+---------------+
+| Duis facilisis. | Quisque ex    |
+|                 | nibh, auctor  |
+|                 | eu sodales.   |
++-----------------+---------------+
+| Maecenas        |               |
+| blandit elit.   |               |
++-----------------+---------------+
+| Sed lobortis,   | Mauris enim.  |
+| nibh vitae.     |               |
++-----------------+---------------+"#
         );
         Ok(())
     }
@@ -236,17 +236,17 @@ mod tests {
         let s = renderer.render_table(&wrapped_table, &widths);
         assert_eq!(
             s,
-            r#"+---------------+-----------------+
-| Duis          | Quisque ex      |
-| facilisis.    | nibh, auctor eu |
-|               | sodales.        |
-+===============+=================+
-| Maecenas      | Aliquam porta   |
-| blandit elit. | ipsum.          |
-+---------------+-----------------+
-| Sed lobortis, | Mauris enim.    |
-| nibh vitae.   |                 |
-+---------------+-----------------+"#
+            r#"+-----------------+---------------+
+| Duis facilisis. | Quisque ex    |
+|                 | nibh, auctor  |
+|                 | eu sodales.   |
++=================+===============+
+| Maecenas        |               |
+| blandit elit.   |               |
++-----------------+---------------+
+| Sed lobortis,   | Mauris enim.  |
+| nibh vitae.     |               |
++-----------------+---------------+"#
         );
         Ok(())
     }
