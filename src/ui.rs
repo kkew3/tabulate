@@ -72,6 +72,7 @@ impl UserWidths {
 /// Currently supported table layouts are:
 ///
 ///     - grid_no_header
+///     - grid
 ///
 /// STRICT MODE
 ///
