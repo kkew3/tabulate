@@ -35,12 +35,17 @@ impl TableRenderers {
 /// Sample:
 ///
 /// ```plaintext
-/// +------+-------+
-/// | abcd | ab ab |
-/// |      | b abc |
-/// +------+-------+
-/// | a cd | bac b |
-/// +------+-------+
+/// +---------------+-----------------+
+/// | Duis          | Quisque ex      |
+/// | facilisis.    | nibh, auctor eu |
+/// |               | sodales.        |
+/// +---------------+-----------------+
+/// | Maecenas      | Aliquam porta   |
+/// | blandit elit. | ipsum.          |
+/// +---------------+-----------------+
+/// | Sed lobortis, | Mauris enim.    |
+/// | nibh vitae.   |                 |
+/// +---------------+-----------------+
 /// ```
 pub struct GridNoHeader;
 
