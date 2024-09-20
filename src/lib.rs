@@ -3,6 +3,7 @@ pub mod io;
 pub mod table;
 pub mod table_renderers;
 pub(crate) mod try_wrap;
+pub mod ui;
 
 #[derive(Debug)]
 pub enum Error {
