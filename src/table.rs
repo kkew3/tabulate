@@ -217,7 +217,7 @@ fn wrap_row<'s>(
 }
 
 /// Wrap every line of the table. Return the wrapped table.
-fn wrap_table<'s>(
+pub fn wrap_table<'s>(
     table: &'s Table<String>,
     widths: &[usize],
     opts: &mut WrapOptionsVarWidths<'_>,
@@ -251,7 +251,7 @@ fn fill_cell(
 }
 
 /// Fill the wrapped table, assuming the table is non-empty.
-fn fill_table(table: &mut Table<Vec<Cow<'_, str>>>, widths: &[usize]) {
+pub fn fill_table(table: &mut Table<Vec<Cow<'_, str>>>, widths: &[usize]) {
     let nrows = table.nrows();
     for i in 0..nrows {
         let wrapped_row = table.row_mut(i).unwrap();
@@ -264,7 +264,7 @@ fn fill_table(table: &mut Table<Vec<Cow<'_, str>>>, widths: &[usize]) {
 
 /// Ensure all lines in a wrapped row is within corresponding width in
 /// `widths`. The `row_idx` is needed to prepare the error message.
-fn ensure_row_within_widths(
+pub fn ensure_row_within_widths(
     row_idx: usize,
     wrapped_row: &[Vec<Cow<'_, str>>],
     widths: &[usize],
