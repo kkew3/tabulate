@@ -27,10 +27,7 @@ impl TableRenderers {
     pub fn new(name: &str) -> crate::Result<Box<dyn TableRenderer>> {
         match name {
             "simple_grid" => Ok(Box::new(SimpleGrid)),
-            _ => Err(crate::Error::InvalidArgument(format!(
-                "Unrecognized table layout `{}`",
-                name
-            ))),
+            _ => Err(crate::Error::InvalidTableLayout(name.into())),
         }
     }
 }

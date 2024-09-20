@@ -14,9 +14,11 @@ pub enum Error {
     /// within given width. If it's not possible to know the cell coordinate,
     /// a `None` may be used instead.
     ColumnNotWideEnough(Option<(usize, usize)>),
-    /// If the command line argument is invalid. The string is the error
-    /// message.
-    InvalidArgument(String),
+    /// If total width is not wide enough to support user widths and the
+    /// underlying table layout.
+    TotalWidthNotLargeEnough(usize),
+    /// Unrecognized table layout. The wrapped string is the layout name.
+    InvalidTableLayout(String),
 }
 
 impl From<std::io::Error> for Error {

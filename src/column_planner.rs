@@ -518,11 +518,11 @@ pub fn complete_user_widths(
     // The ncols of a transposed table is nrows.
     let nrows = transposed_table.ncols();
     if user_widths.len() != ncols {
-        return Err(crate::Error::InvalidArgument(format!(
+        panic!(
             "len(WIDTH_LIST) ({}) != table ncols ({})",
             user_widths.len(),
             ncols
-        )));
+        );
     }
     // Indices of columns whose widths are not specified by user.
     let undecided_cols: Vec<usize> = user_widths
@@ -543,9 +543,7 @@ pub fn complete_user_widths(
         user_widths.iter().filter_map(|x| x.as_ref()).sum();
     let table_layout_width = table_renderer.layout_width(ncols);
     if user_total_width < sum_decided_width + table_layout_width {
-        return Err(crate::Error::InvalidArgument(
-            format!("TOTAL_WIDTH ({}) not large enough to support WIDTH_LIST and the table layout",
-                user_total_width)));
+        return Err(crate::Error::TotalWidthNotLargeEnough(user_total_width));
     }
     // Total optimizable width.
     let sum_widths = user_total_width - sum_decided_width - table_layout_width;
