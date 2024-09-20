@@ -4,12 +4,12 @@ use std::io::BufRead;
 /// Options for reading table from input.
 pub struct ReadOptions {
     /// The column separator
-    pub sep: &'static str,
+    pub sep: String,
 }
 
 impl Default for ReadOptions {
     fn default() -> Self {
-        Self { sep: "\t" }
+        Self { sep: "\t".into() }
     }
 }
 
@@ -27,7 +27,7 @@ impl Table<String> {
             let row: Vec<String> = if line.is_empty() {
                 vec![]
             } else {
-                line.split(opts.sep).map(ToOwned::to_owned).collect()
+                line.split(&opts.sep).map(ToOwned::to_owned).collect()
             };
             rows_before_norm.push(row);
         }
