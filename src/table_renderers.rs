@@ -207,9 +207,57 @@ impl TableRenderer for Plain {
     }
 }
 
+/// Sample:
+///
+/// ```plaintext
+/// Duis facilisis.  Quisque ex   
+///                  nibh, auctor
+///                  eu sodales.  
+/// ---------------  -------------
+/// Maecenas                      
+/// blandit elit.                 
+/// Sed lobortis,    Mauris enim.
+/// nibh vitae.                   
+/// ```
+pub struct Simple;
+
+impl TableRenderer for Simple {
+    fn layout_width(&self, table_ncols: usize) -> usize {
+        2 * (table_ncols - 1)
+    }
+
+    fn render_table(
+        &self,
+        filled_table: &Table<Vec<Cow<'_, str>>>,
+        widths: &[usize],
+    ) -> String {
+        let mut hrule = String::new();
+        let ncols = widths.len();
+        for (j, w) in widths.iter().enumerate() {
+            let dashed = "-".repeat(*w);
+            hrule.push_str(&dashed);
+            if j < ncols - 1 {
+                hrule.push_str("  ");
+            }
+        }
+
+        let mut buf = String::new();
+        draw_row(&mut buf, filled_table.row(0).unwrap(), "", "", "  ");
+        buf.push('\n');
+        buf.push_str(&hrule);
+        let nrows = filled_table.nrows();
+        for i in 1..nrows {
+            buf.push('\n');
+            let row = filled_table.row(i).unwrap();
+            draw_row(&mut buf, row, "", "", "  ");
+        }
+        buf
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Grid, GridNoHeader, Plain};
+    use super::{Grid, GridNoHeader, Plain, Simple};
     use crate::column_planner::complete_user_widths;
     use crate::io::ReadOptions;
     use crate::table::{
@@ -304,6 +352,26 @@ mod tests {
             r#"Duis facilisis.  Quisque ex   
                  nibh, auctor 
                  eu sodales.  
+Maecenas                      
+blandit elit.                 
+Sed lobortis,    Mauris enim. 
+nibh vitae.                   "#
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple() -> crate::Result<()> {
+        let renderer = Simple;
+        let mut table = read_lipsum_text()?;
+        let (widths, wrapped_table) = fill_lipsum_table(&mut table, &renderer)?;
+        let s = renderer.render_table(&wrapped_table, &widths);
+        assert_eq!(
+            s,
+            r#"Duis facilisis.  Quisque ex   
+                 nibh, auctor 
+                 eu sodales.  
+---------------  -------------
 Maecenas                      
 blandit elit.                 
 Sed lobortis,    Mauris enim. 
