@@ -65,6 +65,28 @@ fn draw_row(
     }
 }
 
+/// Draw a horizontal rule into `buf` given table `widths`. See tests for
+/// details.
+fn draw_hrule(
+    buf: &mut String,
+    widths: &[usize],
+    rule: &str,
+    left_pad: &str,
+    right_pad: &str,
+    col_sep: &str,
+) {
+    buf.push_str(left_pad);
+    let ncols = widths.len();
+    for (i, w) in widths.iter().enumerate() {
+        buf.push_str(&rule.repeat(*w));
+        if i < ncols - 1 {
+            buf.push_str(col_sep);
+        } else {
+            buf.push_str(right_pad);
+        }
+    }
+}
+
 /// Sample:
 ///
 /// ```plaintext
@@ -93,12 +115,7 @@ impl TableRenderer for GridNoHeader {
         widths: &[usize],
     ) -> String {
         let mut hrule = String::new();
-        hrule.push('+');
-        for w in widths.iter() {
-            let dashes = "-".repeat(w + 2);
-            hrule.push_str(&dashes);
-            hrule.push('+');
-        }
+        draw_hrule(&mut hrule, widths, "-", "+-", "-+", "-+-");
 
         let mut buf = String::new();
         buf.push_str(&hrule);
@@ -141,19 +158,9 @@ impl TableRenderer for Grid {
         widths: &[usize],
     ) -> String {
         let mut hrule = String::new();
-        hrule.push('+');
-        for w in widths.iter() {
-            let dashes = "-".repeat(w + 2);
-            hrule.push_str(&dashes);
-            hrule.push('+');
-        }
+        draw_hrule(&mut hrule, widths, "-", "+-", "-+", "-+-");
         let mut hrule2 = String::new();
-        hrule2.push('+');
-        for w in widths.iter() {
-            let dashes = "=".repeat(w + 2);
-            hrule2.push_str(&dashes);
-            hrule2.push('+');
-        }
+        draw_hrule(&mut hrule2, widths, "=", "+=", "=+", "=+=");
 
         let mut buf = String::new();
         buf.push_str(&hrule);
@@ -233,14 +240,7 @@ impl TableRenderer for Simple {
         widths: &[usize],
     ) -> String {
         let mut hrule = String::new();
-        let ncols = widths.len();
-        for (j, w) in widths.iter().enumerate() {
-            let dashed = "-".repeat(*w);
-            hrule.push_str(&dashed);
-            if j < ncols - 1 {
-                hrule.push_str("  ");
-            }
-        }
+        draw_hrule(&mut hrule, widths, "-", "", "", "  ");
 
         let mut buf = String::new();
         draw_row(&mut buf, filled_table.row(0).unwrap(), "", "", "  ");
@@ -281,12 +281,7 @@ impl TableRenderer for Github {
         widths: &[usize],
     ) -> String {
         let mut hrule = String::new();
-        hrule.push('|');
-        for w in widths.iter() {
-            let dashes = "-".repeat(w + 2);
-            hrule.push_str(&dashes);
-            hrule.push('|');
-        }
+        draw_hrule(&mut hrule, widths,  "-", "|-", "-|", "-|-");
 
         let mut buf = String::new();
         draw_row(&mut buf, filled_table.row(0).unwrap(), "| ", " |", " | ");
@@ -304,7 +299,7 @@ impl TableRenderer for Github {
 
 #[cfg(test)]
 mod tests {
-    use super::{Github, Grid, GridNoHeader, Plain, Simple};
+    use super::{draw_hrule, Github, Grid, GridNoHeader, Plain, Simple};
     use crate::column_planner::complete_user_widths;
     use crate::io::ReadOptions;
     use crate::table::{
@@ -313,6 +308,13 @@ mod tests {
     use std::borrow::Cow;
     use std::fs::File;
     use std::io::BufReader;
+
+    #[test]
+    fn test_draw_hrule() {
+        let mut buf = String::new();
+        draw_hrule(&mut buf, &[4, 5, 2], "-", "+=", "=+", "=+=");
+        assert_eq!(buf, "+=----=+=-----=+=--=+");
+    }
 
     fn read_lipsum_text() -> crate::Result<Table<String>> {
         let file = File::open("examples/lipsum.txt")?;
