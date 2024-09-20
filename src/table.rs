@@ -161,24 +161,23 @@ pub trait TableRenderer {
 /// A wrapper over [`textwrap::Options`] that can change its `width` as needed.
 pub struct WrapOptionsVarWidths<'a> {
     inner: textwrap::Options<'a>,
-    original_width: usize,
 }
 
 impl<'a> From<textwrap::Options<'a>> for WrapOptionsVarWidths<'a> {
     fn from(value: textwrap::Options<'a>) -> Self {
-        let width = value.width;
-        Self {
-            inner: value,
-            original_width: width,
-        }
+        Self { inner: value }
     }
 }
 
-impl<'a> From<WrapOptionsVarWidths<'a>> for textwrap::Options<'a> {
-    fn from(value: WrapOptionsVarWidths<'a>) -> Self {
-        let mut opts = value.inner;
-        opts.width = value.original_width;
-        opts
+impl<'a> Default for WrapOptionsVarWidths<'a> {
+    fn default() -> Self {
+        WrapOptionsVarWidths::from(
+            // `79` is arbitrary, since it will be erased anyway.
+            textwrap::Options::new(79)
+                .break_words(false)
+                .word_separator(textwrap::WordSeparator::UnicodeBreakProperties)
+                .word_splitter(textwrap::WordSplitter::HyphenSplitter),
+        )
     }
 }
 
