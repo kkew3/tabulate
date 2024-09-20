@@ -58,8 +58,8 @@ impl UserWidths {
 /// may instead opt to let the program decide the width of each column, with
 /// the objective to minimize the number of lines taken by the table. To fully
 /// automate the decision, simply skip the `-W` option. Otherwise, e.g.,
-/// `-W 18,*,*` tell the program to optimize the 2nd and 3rd columns, but leave
-/// the first column width fixed as 18 ASCII characters wide.
+/// `-W'18,*,*'` tell the program to optimize the 2nd and 3rd columns, but
+/// leave the first column width fixed as 18 ASCII characters wide.
 ///
 /// TABLE WIDTH
 ///
