@@ -79,6 +79,7 @@ impl UserWidths {
 /// - simple_grid
 /// - rounded_grid
 /// - heavy_grid
+/// - mixed_grid
 ///
 /// STRICT MODE
 ///
