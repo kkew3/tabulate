@@ -84,3 +84,29 @@ This utility is not the right tool to display single line data in good alignment
 # Similar projects
 
 - [table-layout](https://github.com/75lb/table-layout.git)
+
+# Dev
+
+## Tests
+
+To test locally, run
+
+```bash
+cargo test
+```
+
+Note that randomized property tests are included, so it may take some time to finish the tests.
+
+## Benchmark
+
+Either benchmark the bisect algorithm with:
+
+```bash
+cargo bench --bench complete_user_widths -F bench-bisect
+```
+
+or the brute-force algorithm with:
+
+```bash
+cargo bench --bench complete_user_widths -F bench-brute
+```
