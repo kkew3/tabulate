@@ -78,6 +78,7 @@ impl UserWidths {
 /// - github
 /// - simple_grid
 /// - rounded_grid
+/// - heavy_grid
 ///
 /// STRICT MODE
 ///
