@@ -7,155 +7,80 @@
                                       
 ```
 
-Make fixed-width plaintext grid table with multiline cell support.
+Format plaintext into fixed-width table with multiline cells.
 
-Usage
------
+# Usage
 
 > copied from `tabulate --help`:
 
 ```
-usage: tabulate [-h] [-W WIDTH_LIST] [-T TABLE_WIDTH] [-L {grid,hline}] [-S]
-                [-b] [-d DELIMITER]
-                [FILE]
+Format plain text into fixed-width table with multi-line cell by wrapping text
+in each field
 
-Make fixed-width plaintext table with multi-line cell supports. What plaintext
-table content is expected: <TAB> will be regarded as field delimiter, <LF> (or
-<CRLF> if on Windows) as row delimiter, and all the others as cell content.
+Usage: tabulate [OPTIONS] [FILENAME]
 
-positional arguments:
-  FILE                  table content from which to read; if FILE is not
-                        specified, the table content will be expected from
-                        stdin
+Arguments:
+  [FILENAME]  The input stream, default to stdin
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -W WIDTH_LIST, --widths WIDTH_LIST
-                        a comma-separated list of WIDTH (int) or `-'
-                        specifying the width of each column; `-' implies that
-                        the width of the underlying column can be decided by
-                        the program, in objective of minimizing the number of
-                        rows of the table. Each WIDTH defines the maximum
-                        number of characters in the cell per row. Note,
-                        however, that the sum of WIDTHs does not necessarily
-                        equal to the width of table, since the table layout is
-                        not taken into account with WIDTHs. One CJK character
-                        takes up two units of width. If `-W WIDTH_LIST' is not
-                        specified, the entire WIDTH_LIST will be decided by
-                        the program, in the same objective as above mentioned
-  -T TABLE_WIDTH, --table-width TABLE_WIDTH
-                        the total table width. If specified, unless WIDTH_LIST
-                        contains `-', and TABLE_WIDTH is sufficiently large,
-                        TABLE_WIDTH may not imply the actual table width
-                        rendered. Default to terminal width
-  -L {grid,hline}, --layout {grid,hline}
-                        table layout; default to grid
-  -S, --strict          to enable strict mode, where wrapped lines exceeding
-                        the WIDTHs that will ruin the table layout are
-                        forbidden
-  -b, --break-long-words
-                        to break long words, default not to break long words
-  -d DELIMITER, --delimiter DELIMITER
-                        the field delimiter in input data, default to <TAB>
+Options:
+  -W, --widths <WIDTHS>            The column widths
+  -T, --table-width <TABLE_WIDTH>  The table total width, default to terminal
+                                   width
+  -L, --layout <TABLE_LAYOUT>      The table layout, default to "grid_no_header"
+  -S, --strict                     Specify to enable strict mode
+  -d, --delimiter <DELIMITER>      The field delimiter in the input data,
+                                   default to <TAB>
+  -h, --help                       Print help
 ```
 
-Installation
-------------
+See [synopsis.md](docs/synopsis.md) for details.
 
-Write a launcher script of `src/tabulate` and enjoy.
+# Installation
 
-Launcher script example (bash)
+Download the pre-built binary from the release page, or clone and build using [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html):
 
 ```bash
-#!/usr/bin/env bash
-python3 src/tabulate "$@"
+git clone https://github.com/kkew3/tabulate.git
+cd tabulate
+cargo install --path .
 ```
 
-Launcher script example (dos-batch)
+# Example
 
-```batch
-@py -3 src\tabulate %*
-```
+Type `tabulate -T35 docs/lipsum.txt` to format [lipsum.txt](examples/lipsum.txt):
 
-Optional Requirement
---------------------
-
-- `cjkwrap`: for CJK language support. Notice that CJK characters align correctly only under font where the width of one CJK character equals two ASCII characters.
-
-Example
--------
-
-Type `tabulate -W14,56 example.txt` to convert [example.txt](examples/example.txt) to [example-formatted.txt](examples/example-formatted.txt).
-
-> example.txt
+> lipsum.txt
 
 ```
-Usage	tabulate [-h] [-W WIDTH_LIST] [FILE]
-Description	Make fixed-width plaintext table with multi-line cell supports. Currently only support grid table, but it's trivial to adapt it to other layout once the table has been built. What plaintext table content is expected: <TAB> will be regarded as field delimiter, <LF> (or <CRLF> if on Windows) as row delimiter, and all the others as cell content.
-FILE	table content from which to read; if FILE is not specified, the table content will be expected from stdin
--h, --help	show this help message and exit
+Duis facilisis.	Quisque ex nibh, auctor eu sodales.
+Maecenas blandit elit.
+Sed lobortis, nibh vitae.	Mauris enim.
 ```
 
-> example-formatted.txt
+Output:
 
 ```
-+----------------+----------------------------------------------------------+
-| Usage          | tabulate [-h] [-W WIDTH_LIST] [FILE]                     |
-+----------------+----------------------------------------------------------+
-| Description    | Make fixed-width plaintext table with multi-line cell    |
-|                | supports. Currently only support grid table, but it's    |
-|                | trivial to adapt it to other layout once the table has   |
-|                | been built. What plaintext table content is expected:    |
-|                | <TAB> will be regarded as field delimiter, <LF> (or      |
-|                | <CRLF> if on Windows) as row delimiter, and all the      |
-|                | others as cell content.                                  |
-+----------------+----------------------------------------------------------+
-| FILE           | table content from which to read; if FILE is not         |
-|                | specified, the table content will be expected from stdin |
-+----------------+----------------------------------------------------------+
-| -h, --help     | show this help message and exit                          |
-+----------------+----------------------------------------------------------+
++-----------------+---------------+
+| Duis facilisis. | Quisque ex    |
+|                 | nibh, auctor  |
+|                 | eu sodales.   |
++-----------------+---------------+
+| Maecenas        |               |
+| blandit elit.   |               |
++-----------------+---------------+
+| Sed lobortis,   | Mauris enim.  |
+| nibh vitae.     |               |
++-----------------+---------------+
 ```
 
-Type `tabulate -W14,- -T62 -Lhline example_cjk.txt` to convert [example_cjk.txt](examples/example_cjk.txt) to [example_cjk-formatted.txt](examples/example_cjk-formatted.txt).
+# Difference with `PrettyTable` and `python-tabulate`
 
-> example_cjk.txt
-
-```
-用法	tabulate [-h] [-W WIDTH_LIST] [FILE]
-描述	制作一个带有多行文字单元格支持的纯文本表格。目前只支持 grid 样式的表格，但是一旦表格制作完成，改变它的样式将会很容易。纯文本表格的输入应为：<TAB> 为列分隔符，<LF>（在 Windows 上则为 <CRLF>）为行分隔符，其它所有字符为单元格内容。
-FILE	待读入的表格内容；如果 FILE 没有指定，那么表格内容将从标准输入流读取
--h, --help	显示帮助信息然后退出
-```
-
-> example_cjk-formatted.txt
-
-```
-==============  ==============================================
-用法            tabulate [-h] [-W WIDTH_LIST] [FILE]
---------------  ----------------------------------------------
-描述            制作一个带有多行文字单元格支持的纯文本表格。目
-                前只支持 grid 样式的表格，但是一旦表格制作完成
-                ，改变它的样式将会很容易。纯文本表格的输入应为
-                ：<TAB> 为列分隔符，<LF>（在 Windows 上则为
-                <CRLF>）为行分隔符，其它所有字符为单元格内容。
---------------  ----------------------------------------------
-FILE            待读入的表格内容；如果 FILE
-                没有指定，那么表格内容将从标准输入流读取
---------------  ----------------------------------------------
--h, --help      显示帮助信息然后退出
-==============  ==============================================
-```
-
-## Difference with `PrettyTable` and `python-tabulate`
-
-[PrettyTable](https://pypi.org/project/PrettyTable/) and [python-tabulate](https://github.com/astanin/python-tabulate.git) are awesome packages to draw plaintext table.
-However, this utility solves a different problem.
-The focus of this utility lies in fixed-width table, facilitating users to specify the width of each column themselves.
+[`PrettyTable`](https://pypi.org/project/PrettyTable/) and [`python-tabulate`](https://github.com/astanin/python-tabulate.git) are awesome packages to draw plaintext table.
+However, while sharing some table layout with `python-tabulate`, this utility solves a different problem.
+The focus of this utility lies in fixed-width table, facilitating users to specify the width of each column themselves (or let the program decide the column widths).
 This way, multiline cell has builtin support.
 This utility is not the right tool to display single line data in good alignment.
 
-
-## Similar projects
+# Similar projects
 
 - [table-layout](https://github.com/75lb/table-layout.git)
