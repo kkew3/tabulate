@@ -35,6 +35,8 @@ Options:
 
 See [synopsis.md](docs/synopsis.md) for details.
 
+See [column_planner.md](docs/column_planner.md) for more about automatic allocation of column widths.
+
 # Installation
 
 Download the pre-built binary from the release page, or clone and build using [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html):
