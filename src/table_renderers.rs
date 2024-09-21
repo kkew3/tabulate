@@ -34,6 +34,7 @@ impl TableRenderers {
             "rounded_grid" => Ok(Box::new(RoundedGrid)),
             "heavy_grid" => Ok(Box::new(HeavyGrid)),
             "mixed_grid" => Ok(Box::new(MixedGrid)),
+            "double_grid" => Ok(Box::new(DoubleGrid)),
             _ => Err(crate::Error::InvalidTableLayout(name.into())),
         }
     }
@@ -505,11 +506,62 @@ impl TableRenderer for MixedGrid {
     }
 }
 
+/// Sample:
+///
+/// ```plaintext
+/// ╔═════════════════╦═══════════════╗
+/// ║ Duis facilisis. ║ Quisque ex    ║
+/// ║                 ║ nibh, auctor  ║
+/// ║                 ║ eu sodales.   ║
+/// ╠═════════════════╬═══════════════╣
+/// ║ Maecenas        ║               ║
+/// ║ blandit elit.   ║               ║
+/// ╠═════════════════╬═══════════════╣
+/// ║ Sed lobortis,   ║ Mauris enim.  ║
+/// ║ nibh vitae.     ║               ║
+/// ╚═════════════════╩═══════════════╝
+/// ```
+pub struct DoubleGrid;
+
+impl TableRenderer for DoubleGrid {
+    fn layout_width(&self, table_ncols: usize) -> usize {
+        3 * (table_ncols - 1) + 2 + 2
+    }
+
+    fn render_table(
+        &self,
+        filled_table: &Table<Vec<Cow<'_, str>>>,
+        widths: &[usize],
+    ) -> String {
+        let mut hrule = String::new();
+        draw_hrule(&mut hrule, widths, "═", "╠═", "═╣", "═╬═");
+        let mut hrule_first = String::new();
+        draw_hrule(&mut hrule_first, widths, "═", "╔═", "═╗", "═╦═");
+        let mut hrule_last = String::new();
+        draw_hrule(&mut hrule_last, widths, "═", "╚═", "═╝", "═╩═");
+
+        let mut buf = String::new();
+        buf.push_str(&hrule_first);
+        buf.push('\n');
+        draw_row(&mut buf, filled_table.row(0).unwrap(), "║ ", " ║", " ║ ");
+        buf.push('\n');
+        let nrows = filled_table.nrows();
+        for i in 1..nrows {
+            buf.push_str(&hrule);
+            buf.push('\n');
+            draw_row(&mut buf, filled_table.row(i).unwrap(), "║ ", " ║", " ║ ");
+            buf.push('\n');
+        }
+        buf.push_str(&hrule_last);
+        buf
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        draw_hrule, Github, Grid, GridNoHeader, HeavyGrid, MixedGrid, Plain,
-        RoundedGrid, Simple, SimpleGrid,
+        draw_hrule, DoubleGrid, Github, Grid, GridNoHeader, HeavyGrid,
+        MixedGrid, Plain, RoundedGrid, Simple, SimpleGrid,
     };
     use crate::column_planner::complete_user_widths;
     use crate::io::ReadOptions;
@@ -748,6 +800,29 @@ nibh vitae.                   "#
 │ Sed lobortis,   │ Mauris enim.  │
 │ nibh vitae.     │               │
 ┕━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━┙"#
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_grid() -> crate::Result<()> {
+        let renderer = DoubleGrid;
+        let mut table = read_lipsum_text()?;
+        let (widths, wrapped_table) = fill_lipsum_table(&mut table, &renderer)?;
+        let s = renderer.render_table(&wrapped_table, &widths);
+        assert_eq!(
+            s,
+            r#"╔═════════════════╦═══════════════╗
+║ Duis facilisis. ║ Quisque ex    ║
+║                 ║ nibh, auctor  ║
+║                 ║ eu sodales.   ║
+╠═════════════════╬═══════════════╣
+║ Maecenas        ║               ║
+║ blandit elit.   ║               ║
+╠═════════════════╬═══════════════╣
+║ Sed lobortis,   ║ Mauris enim.  ║
+║ nibh vitae.     ║               ║
+╚═════════════════╩═══════════════╝"#
         );
         Ok(())
     }
