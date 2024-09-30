@@ -1,6 +1,6 @@
 [package]
 name = "tabulate"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Kaiwen Wu <kps6326@hotmail.com>"]
 description = "Multiline fixed-width plaintext table generator"
 repository = "https://github.com/kkew3/tabulate"

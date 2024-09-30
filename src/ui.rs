@@ -66,6 +66,9 @@ pub struct Cli {
     /// The field delimiter in the input data, default to <TAB>.
     #[arg(short = 'd', long = "delimiter", name = "DELIMITER")]
     field_delimiter: Option<String>,
+    /// Specify to enable escape sequence as `echo -e` in input data.
+    #[arg(short = 'e', long = "escape", default_value_t = false)]
+    enable_escape_sequence: bool,
     /// The input stream, default to stdin.
     filename: Option<String>,
 }
@@ -93,6 +96,9 @@ impl Cli {
         if let Some(field_delimiter) = cli.field_delimiter {
             read_opts.sep = field_delimiter;
         }
+        if cli.enable_escape_sequence {
+            read_opts.enable_backslash_escape = true;
+        }
         Ok(PostCli {
             user_widths,
             user_total_width: cli.user_total_width,
@@ -108,6 +114,9 @@ impl Display for crate::Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             crate::Error::EmptyTable => write!(f, "The input table is empty."),
+            crate::Error::Utf8(err) => {
+                write!(f, "The input is not valid utf-8: {}", err)
+            }
             crate::Error::Io(err) => write!(f, "IO error occurs: {}.", err),
             crate::Error::ColumnNotWideEnough(cell) => match cell.as_ref() {
                 None => write!(f, "Some columns are not wide enough."),
