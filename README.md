@@ -77,6 +77,42 @@ Output:
 +-----------------+---------------+
 ```
 
+## echo-like escape sequence example
+
+Type `tabulate -T35 -e example-texts/lipsum_escape.txt` to format [lipsum_escape.txt](example-texts/lipsum_escape.txt):
+
+> lipsum_escape.txt
+
+```
+Duis facilisis.	Quisque ex nibh, auctor eu sodales.
+Maecenas blandit elit.
+Nunc blandit augue sed eros euismod maximus. \xf0\x9f\x98\x82\n\n- Nunc blandit augue sed eros euismod maximus.\n- Praesent aliquet, tellus laoreet.	Mauris enim.
+```
+
+Output:
+
+```
++---------------------+-----------+
+| Duis facilisis.     | Quisque   |
+|                     | ex nibh,  |
+|                     | auctor eu |
+|                     | sodales.  |
++---------------------+-----------+
+| Maecenas blandit    |           |
+| elit.               |           |
++---------------------+-----------+
+| Nunc blandit augue  | Mauris    |
+| sed eros euismod    | enim.     |
+| maximus. 😂         |           |
+|                     |           |
+| - Nunc blandit      |           |
+| augue sed eros      |           |
+| euismod maximus.    |           |
+| - Praesent aliquet, |           |
+| tellus laoreet.     |           |
++---------------------+-----------+
+```
+
 ## CJK characters example
 
 Type `tabulate -T35 example-texts/lipsum_zh.txt` to format [lipsum_zh.txt](example-texts/lipsum_zh.txt):
