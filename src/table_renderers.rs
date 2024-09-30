@@ -638,7 +638,7 @@ mod tests {
     }
 
     fn read_lipsum_text() -> crate::Result<Table<String>> {
-        let file = File::open("examples/lipsum.txt")?;
+        let file = File::open("../example-texts/lipsum.txt")?;
         let file = BufReader::new(file);
         let read_opts = ReadOptions::default();
         let table = Table::from_bufread(file, &read_opts)?;
