@@ -49,6 +49,8 @@ cargo install --path .
 
 # Example
 
+## Basic
+
 Type `tabulate -T35 example-texts/lipsum.txt` to format [lipsum.txt](example-texts/lipsum.txt):
 
 > lipsum.txt
@@ -75,7 +77,7 @@ Output:
 +-----------------+---------------+
 ```
 
-CJK example:
+## CJK characters example
 
 Type `tabulate -T35 example-texts/lipsum_zh.txt` to format [lipsum_zh.txt](example-texts/lipsum_zh.txt):
 
