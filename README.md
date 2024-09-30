@@ -49,7 +49,7 @@ cargo install --path .
 
 # Example
 
-Type `tabulate -T35 docs/lipsum.txt` to format [lipsum.txt](example-texts/lipsum.txt):
+Type `tabulate -T35 example-texts/lipsum.txt` to format [lipsum.txt](example-texts/lipsum.txt):
 
 > lipsum.txt
 
