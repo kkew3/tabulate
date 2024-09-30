@@ -30,6 +30,8 @@ Options:
   -S, --strict                     Specify to enable strict mode
   -d, --delimiter <DELIMITER>      The field delimiter in the input data,
                                    default to <TAB>
+  -e, --escape                     Specify to enable escape sequence as
+                                   `echo -e` in input data
   -h, --help                       Print help
 ```
 
