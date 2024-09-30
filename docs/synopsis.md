@@ -40,3 +40,8 @@ Currently supported table layouts are:
 
 If strict mode is enabled, the program errors if any column is not wide
 enough such that some text protrudes out some columns and ruin the table.
+
+## ESCAPE SEQUENCE IN INPUT
+
+With option `-e`, escape sequences like `\n` can be inserted in the input.
+Nevertheless, note that certain escape sequences, e.g. `\t`, will ruin the table layout.
